@@ -23,6 +23,7 @@ export class AuthService {
     onAuthStateChanged(this.auth, (user) => {
       if (user) {
         this.authState.next(true);
+        this.dbService.getAccount(user.uid);
       } else {
         this.authState.next(false);
       }
@@ -44,9 +45,10 @@ export class AuthService {
   // Login using email and password
   async login(email: string, password: string): Promise<void> {
     try {
-      await signInWithEmailAndPassword(this.auth, email, password);
-      this.authState.next(true);
+      const userCredential = await signInWithEmailAndPassword(this.auth, email, password);
+      await this.dbService.getAccount(userCredential.user.uid);
       this.router.navigate(['/dashboard']);
+      this.authState.next(true);
     } catch (error) {
       console.error('Login failed:', error);
       throw error;

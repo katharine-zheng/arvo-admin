@@ -1,13 +1,36 @@
 import { Injectable } from '@angular/core';
 import { User } from '@angular/fire/auth';
-import { Firestore, QueryConstraint, addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from '@angular/fire/firestore';
+import { Firestore, QueryConstraint, addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from '@angular/fire/firestore';
 
 @Injectable({
   providedIn: 'root'
 })
 export class DbService {
 
+  public account: any;
+  public videoTags: string[] = [];
+  public videos: any[] = [];
+
   constructor(private firestore: Firestore) {}
+
+  async getAccount(accountId: string): Promise<any> {
+    if (this.account) return;
+    try {
+      const docRef = doc(this.firestore, "accounts", accountId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const account: any = docSnap.data();
+        this.account = account;
+        this.videoTags = account.videoTags;
+        return account;
+      }
+    } catch (error) {
+      // this.handleError(error);
+      // await this.logError(error, "Admin.DbService.getAccount");
+      // const customErrorMessage: string = this.handleError(error);
+      // throw new Error(customErrorMessage);
+    }
+  }
 
   async createAccount(fbUser: any) {
     const newUser = this.setNewAccount(fbUser);
@@ -85,7 +108,8 @@ export class DbService {
 
   async addVideo(videoMetadata: any) {
     const videoRef = collection(this.firestore, 'videos');
-    await addDoc(videoRef, videoMetadata);
+    const docRef = await addDoc(videoRef, videoMetadata);
+    return docRef.id;
   }
 
   async getVideos(accountId: string, productId?: string, journeyId?: string) {
@@ -105,12 +129,72 @@ export class DbService {
     querySnapshot.forEach((doc) => {
       list.push({id: doc.id, ...doc.data()})
     });
+    this.videos = list;
     return list;
   }
 
   async deleteVideo(videoId: string) {
     const videoDocRef = doc(this.firestore, `videos/${videoId}`);
     return await deleteDoc(videoDocRef);
+  }
+
+  saveVideoThumbnail(videoId: string, thumbnailURL: string): Promise<void> {
+    const videoDocRef = doc(this.firestore, `videos/${videoId}`);
+    return updateDoc(videoDocRef, {
+      thumbnailURL: thumbnailURL
+    });
+  }
+
+  async addTagToAccount(tag: string) {
+    const accountDocRef = doc(this.firestore, `accounts/${this.account.id}`);
+
+    // Update the account doc by adding the tag to the tags array if it doesn't exist
+    await updateDoc(accountDocRef, {
+      videoTags: arrayUnion(tag),
+    });
+  }
+
+  async addTagToVideo(tag: string, videoId: string) {
+    // Now update the video document with the selected tag
+    const videoDocRef = doc(this.firestore, `videos/${videoId}`);
+    await updateDoc(videoDocRef, {
+      tags: arrayUnion(tag),
+      tag: tag,
+    });
+  }
+
+  // Remove a tag from the categories array in the account doc
+  async deleteTag(tag: string): Promise<void> {
+    const accountDocRef = doc(this.firestore, `accounts/${this.account.id}`);
+
+    // Remove the tag from the account's categories array
+    await updateDoc(accountDocRef, {
+      videoTags: arrayRemove(tag),
+    });
+
+    // Optionally, unassign the tag from all videos that use it (if required)
+    const videoCollectionRef = collection(this.firestore, 'videos');
+    const q = query(videoCollectionRef, where('tag', '==', tag));
+
+    const querySnapshot = await getDocs(q);
+    querySnapshot.forEach((docSnapshot) => {
+      updateDoc(docSnapshot.ref, { category: '' }); // Unassign the category from the video
+    });
+
+    this.removeTagsLocally(tag);
+    
+  }
+
+  async removeTagFromVideo(videoId: string, tag: string): Promise<void> {
+    const videoDocRef = doc(this.firestore, `videos/${videoId}`);
+    await updateDoc(videoDocRef, {
+      videoTags: arrayRemove(tag),
+      tag: tag,
+    });
+  }
+
+  private removeTagsLocally(tag: string) {
+    this.videoTags = this.videoTags.filter((t) => t !== tag);
   }
 
   private setNewAccount(fbUser: User): any {

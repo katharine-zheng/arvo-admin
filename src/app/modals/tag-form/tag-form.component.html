@@ -1,0 +1,14 @@
+<h2 mat-dialog-title>Create New Tag</h2>
+<div mat-dialog-content>
+  <div *ngFor="let tag of tags">
+    {{tag}} <button (click)="deleteTag(tag)">x</button>
+  </div>
+  <mat-form-field>
+    <mat-label>Tag Name</mat-label>
+    <input matInput [(ngModel)]="newTag" />
+  </mat-form-field>
+</div>
+<div mat-dialog-actions>
+  <button mat-button (click)="close()">Cancel</button>
+  <button mat-button [disabled]="!newTag.trim()" (click)="createTag()">Update</button>
+</div>

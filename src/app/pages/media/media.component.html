@@ -5,6 +5,16 @@
   <button (click)="deleteSelectedVideos()">Delete video(s)</button>
 </ng-container>
 
+<ng-container *ngIf="tags && tags.length > 0">
+  <div class="tags">
+    <label>Tags: </label>
+    <div class="tag" *ngFor="let tag of tags">
+      <button (click)="assignTag(tag)"> {{tag}} </button>
+    </div>
+    <button (click)="openTagModal()">Edit tags</button>
+  </div>
+</ng-container>
+
 <div class="grid-container">
   <div class="grid-item">
     <app-media-upload
@@ -15,7 +25,7 @@
   <div class="grid-item" *ngFor="let video of videos">
     <input type="checkbox" (change)="toggleSelection(video, $event)" [checked]="selectedVideos.includes(video)"/>
     <div class="item-image">
-      <!-- <img *ngIf="product.imageUrl; else placeholder" [src]="product.imageUrl" alt="{{ product.name }}"> -->
+      <img *ngIf="video.thumbnailUrl; else placeholder" [src]="video.thumbnailUrl" alt="{{ video.name }}">
       <ng-template #placeholder>
         <div class="image-placeholder">No Image Available</div>
       </ng-template>
@@ -25,8 +35,13 @@
     <div class="item-details">
       <p>{{video.name}}</p>
       <div class="product-actions">
-        <button mat-raised-button color="warn" (click)="deleteVideo(video.id, video.url)" [disabled]="isDeleting">
-          {{ isDeleting ? 'Deleting...' : 'Delete' }}
+        <div>
+          <ng-container *ngIf="video.tag">
+            <button>Tag: {{video.tag}}</button>
+          </ng-container>
+        </div>
+        <button mat-raised-button color="warn" (click)="deleteVideo(video)" [disabled]="isDeleting">
+          {{ video.isDeleting ? 'Deleting...' : 'Delete' }}
         </button>
       </div>
     </div>

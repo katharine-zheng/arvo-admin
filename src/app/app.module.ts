@@ -26,6 +26,7 @@ import { DeleteDialogComponent } from './modals/delete-dialog/delete-dialog.comp
 import { JourneyComponent } from './pages/journey/journey.component';
 import { MediaUploadComponent } from './components/media-upload/media-upload.component';
 import { AuthComponent } from './pages/auth/auth.component';
+import { TagFormComponent } from './modals/tag-form/tag-form.component';
 
 @NgModule({
   declarations: [
@@ -38,7 +39,8 @@ import { AuthComponent } from './pages/auth/auth.component';
     DeleteDialogComponent,
     JourneyComponent,
     MediaUploadComponent,
-    AuthComponent
+    AuthComponent,
+    TagFormComponent
   ],
   imports: [
     BrowserModule,
