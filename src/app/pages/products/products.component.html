@@ -1,0 +1,82 @@
+<div class="product-page-container">
+  <button mat-raised-button color="primary" (click)="openProductForm()">Add New Product</button>
+
+  <!-- Search Bar -->
+  <!-- <app-search (onSearch)="filterProducts($event)"></app-search> -->
+
+  <div class="view-toggle">
+    <button (click)="setView('grid')">Grid View</button>
+    <button (click)="setView('table')">Table View</button>
+  </div>
+
+  <!-- Product List -->
+  <ng-container *ngIf="view === 'grid'" >
+    <div class="grid-container">
+      <div class="grid-item" *ngFor="let product of products">
+        <div class="item-image">
+          <img *ngIf="product.imageUrl; else placeholder" [src]="product.imageUrl" alt="{{ product.name }}">
+          <ng-template #placeholder>
+            <div class="image-placeholder">No Image Available</div>
+          </ng-template>
+        </div>
+    
+        <!-- Product Details -->
+        <div class="item-details">
+          <h3>{{ product.name }}</h3>
+          <p>Journey</p>
+          <!-- <p>{{ product.description || 'No description available' }}</p> -->
+          <div class="product-actions">
+            <button mat-raised-button color="primary" (click)="editProduct(product)">Edit</button>
+            <button mat-raised-button color="primary" (click)="openDeleteDialog(product)">Delete</button>
+            <button mat-raised-button color="warn" (click)="generateQRCode(product)">Generate QR Code</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- <app-product-grid [products]="filteredProducts"></app-product-grid> -->
+  </ng-container>
+
+  <ng-container *ngIf="view === 'table'" >
+    <div class="table-view">
+      <table mat-table [dataSource]="products">
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef> Product Name </th>
+          <td mat-cell *matCellDef="let product">{{ product.name }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="journeys">
+          <th mat-header-cell *matHeaderCellDef>Journeys </th>
+          <td mat-cell *matCellDef="let product">
+            <!-- <ng-container *ngIf="product."> -->
+              <button mat-raised-button color="accent" [routerLink]="['/products', product.id, 'journey']">
+                Add Journey
+              </button>
+          </td>
+        </ng-container>
+      
+        <!-- <ng-container matColumnDef="description">
+          <th mat-header-cell *matHeaderCellDef> Description </th>
+          <td mat-cell *matCellDef="let product">{{ product.description }}</td>
+        </ng-container> -->
+      
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef> Actions </th>
+          <td mat-cell *matCellDef="let product">
+            <button mat-raised-button color="primary" (click)="editProduct(product)">Edit</button>
+            <button mat-raised-button color="primary" (click)="openDeleteDialog(product)">Delete</button>
+            <button mat-raised-button color="warn" (click)="generateQRCode(product)">Generate QR Code</button>
+          </td>
+        </ng-container>
+      
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      </table>
+      <!-- <app-product-table [products]="filteredProducts"></app-product-table> -->
+    </div>
+  </ng-container>
+
+  <!-- QR Code Generation -->
+  <!-- <div id="qrCodeContainer"></div> -->
+  <!-- <app-qrcode-generator [product]="selectedProduct"></app-qrcode-generator> -->
+</div>

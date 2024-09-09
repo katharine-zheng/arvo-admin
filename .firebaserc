@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "arvo-prod"
+  },
+  "targets": {
+    "arvo-prod": {
+      "hosting": {
+        "arvo-admin": [
+          "arvo-prod"
+        ]
+      }
+    }
+  }
+}

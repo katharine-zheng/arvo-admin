@@ -1,0 +1,43 @@
+<div class="product-form-container">
+  <h2 *ngIf="!isEditMode">Add New Product</h2>
+  <h2 *ngIf="isEditMode">Edit Product</h2>
+
+  <!-- Reactive Form for Product Details -->
+  <form [formGroup]="productForm" (ngSubmit)="onSave()">
+    
+    <!-- Product Name Field -->
+    <div>
+      <label>Product Name</label>
+      <input matInput placeholder="Enter product name" formControlName="name" />
+      <mat-error *ngIf="productForm.get('name')?.hasError('required')">
+        Product name is required
+      </mat-error>
+    </div>
+
+    <!-- Product Description Field -->
+    <div *ngIf="false">
+      <label>Product Description</label>
+      <textarea matInput placeholder="Enter product description" formControlName="description"></textarea>
+      <mat-error *ngIf="productForm.get('description')?.hasError('required')">
+        Product description is required
+      </mat-error>
+    </div>
+
+    <!-- Product Price Field -->
+    <div appearance="outline">
+      <label>Product Price</label>
+      <input matInput type="number" placeholder="Enter product price" formControlName="price" />
+      <mat-error *ngIf="productForm.get('price')?.hasError('required')">
+        Product price is required
+      </mat-error>
+    </div>
+
+    <!-- Actions: Save and Cancel -->
+    <div class="form-actions">
+      <button mat-raised-button color="primary" type="submit" [disabled]="productForm.invalid">
+        {{ isEditMode ? 'Save Changes' : 'Add Product' }}
+      </button>
+      <button mat-button type="button" (click)="onCancel()">Cancel</button>
+    </div>
+  </form>
+</div>

@@ -1,0 +1,30 @@
+<div class="auth-container">
+  <h2 *ngIf="isLoginMode">Login</h2>
+  <h2 *ngIf="!isLoginMode">Create an Account</h2>
+
+  <form (ngSubmit)="onSubmit()">
+    <label>Email:</label>
+    <input type="email" [(ngModel)]="email" name="email" required />
+
+    <label>Password:</label>
+    <input type="password" [(ngModel)]="password" name="password" required minlength="6" />
+
+    <button type="submit">{{ isLoginMode ? 'Login' : 'Register' }}</button>
+  </form>
+
+  <p>
+    <a (click)="toggleMode()">
+      {{ isLoginMode ? "Don't have an account? Create one" : 'Already have an account? Login' }}
+    </a>
+  </p>
+</div>
+
+  <div class="auth-container">
+    <h2>Sign in using Email Link</h2>
+  
+    <form (ngSubmit)="onSendSignInLink()">
+      <label>Email:</label>
+      <input type="email" [(ngModel)]="email" name="email" required />
+      <button type="submit">Send Sign-In Link</button>
+    </form>
+  </div>

@@ -1,0 +1,50 @@
+.journey-container h1 {
+  margin-bottom: 20px;
+}
+
+.video-upload-section,
+.faq-section {
+  margin-bottom: 20px;
+}
+
+.video-list,
+.faq-list {
+  margin-top: 20px;
+}
+
+ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+ul li {
+  margin-bottom: 10px;
+}
+
+.ai-chat-placeholder {
+  border: 1px dashed #ccc;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.design-box {
+  height: 680px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  width: calc(100vw - 200px);
+  border: thin solid #ddd;
+  display: flex;
+  padding: 16px;
+  justify-content: space-between;
+}
+
+.preview-box {
+  border-width: 3px;
+  border-style: solid;
+  border-color: transparent;
+  background-color: #eee;
+  border-radius: 20px;
+  background-color: lavender;
+  height: 100%;
+  aspect-ratio: 9 / 16;
+}

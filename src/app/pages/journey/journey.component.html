@@ -1,0 +1,58 @@
+<div class="journey-container">
+  <h1>Design Journey for Product/Journey ID: {{ journeyId }}</h1>
+
+  <div class="journey-container">
+    <!-- Other journey components -->
+  
+    <!-- Video Upload Section -->
+    <div class="design-box">
+      <div>
+        <!-- <app-media-upload></app-media-upload> -->
+
+        <!-- Video Sorting Section -->
+        <div class="video-list">
+          <h3>Video List</h3>
+          <ng-container *ngIf="videos && videos.length > 0">
+            <ul>
+              <li *ngFor="let video of videos">
+                {{ video.label }} - <a [href]="video.url" target="_blank">{{ video.url }}</a>
+              </li>
+            </ul>
+          </ng-container>
+          <button mat-raised-button color="accent" (click)="sortVideos()">Sort Videos by Label</button>
+        </div>
+
+        <!-- FAQ and Text-based Information Section -->
+        <h2>FAQs / Instructions</h2>
+        <div class="faq-section">
+          <input type="text" placeholder="Question" #faqQuestionInput />
+          <input type="text" placeholder="Answer" #faqAnswerInput />
+          <button mat-raised-button color="primary" (click)="addFaq(faqQuestionInput.value, faqAnswerInput.value)">
+            Add FAQ
+          </button>
+        </div>
+
+        <ng-container *ngIf="faqs && faqs.length > 0">
+          <div class="faq-list">
+            <h3>FAQ List</h3>
+            <ul>
+              <li *ngFor="let faq of faqs">
+                <strong>{{ faq.question }}</strong>: {{ faq.answer }}
+              </li>
+            </ul>
+          </div>
+        </ng-container>
+
+        <!-- Future AI Chat Section (Placeholder) -->
+        <h2>AI Chat (Coming Soon)</h2>
+        <div class="ai-chat-placeholder">
+          <p>This feature will provide AI-based customer assistance.</p>
+        </div>
+      </div>
+      <div class="preview-box">
+        
+      </div>
+    </div>
+    
+  </div>
+</div>

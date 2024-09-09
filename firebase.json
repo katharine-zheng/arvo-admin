@@ -1,0 +1,12 @@
+{
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "hosting": [
+    {
+      "target": "arvo-admin",
+      "source": ".",
+      "frameworksBackend": {}
+    }
+  ]
+}

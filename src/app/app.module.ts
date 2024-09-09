@@ -3,16 +3,65 @@ import { BrowserModule } from '@angular/platform-browser';
 
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
+import { DashboardComponent } from './pages/dashboard/dashboard.component';
+import { ProductsComponent } from './pages/products/products.component';
+import { SettingsComponent } from './pages/settings/settings.component';
+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { MatTableModule } from '@angular/material/table'; // Import the MatTableModule
+import { MatFormFieldModule } from '@angular/material/form-field'; // Optional for form fields in the table
+import { MatInputModule } from '@angular/material/input'; // Optional for input in the table
+import { MatDialogModule } from '@angular/material/dialog';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { ProductFormComponent } from './modals/product-form/product-form.component';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { MediaComponent } from './pages/media/media.component';
+import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
+import { getAuth, provideAuth } from '@angular/fire/auth';
+import { getAnalytics, provideAnalytics, ScreenTrackingService, UserTrackingService } from '@angular/fire/analytics';
+import { getFirestore, provideFirestore } from '@angular/fire/firestore';
+import { getFunctions, provideFunctions } from '@angular/fire/functions';
+import { getStorage, provideStorage } from '@angular/fire/storage';
+import { environment } from '../environments/environment';
+import { DeleteDialogComponent } from './modals/delete-dialog/delete-dialog.component';
+import { JourneyComponent } from './pages/journey/journey.component';
+import { MediaUploadComponent } from './components/media-upload/media-upload.component';
+import { AuthComponent } from './pages/auth/auth.component';
 
 @NgModule({
   declarations: [
-    AppComponent
+    AppComponent,
+    DashboardComponent,
+    ProductsComponent,
+    SettingsComponent,
+    ProductFormComponent,
+    MediaComponent,
+    DeleteDialogComponent,
+    JourneyComponent,
+    MediaUploadComponent,
+    AuthComponent
   ],
   imports: [
     BrowserModule,
-    AppRoutingModule
+    FormsModule,
+    ReactiveFormsModule,
+    AppRoutingModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatProgressBarModule,
+    MatTableModule,
+    provideFirebaseApp(() => initializeApp(environment.firebase)),
+    provideAuth(() => getAuth()),
+    provideAnalytics(() => getAnalytics()),
+    provideFirestore(() => getFirestore()),
+    provideFunctions(() => getFunctions()),
+    provideStorage(() => getStorage())
   ],
-  providers: [],
+  providers: [
+    provideAnimationsAsync('noop'),
+    ScreenTrackingService,
+    UserTrackingService
+  ],
   bootstrap: [AppComponent]
 })
 export class AppModule { }
