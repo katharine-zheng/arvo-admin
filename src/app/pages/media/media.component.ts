@@ -13,7 +13,7 @@ import { TagFormComponent } from '../../modals/tag-form/tag-form.component';
 export class MediaComponent implements OnInit {
   public videos: any[] = [];
   public isDeleting: boolean = false;
-  public selectedVideos: Array<{ id: string; url: string }> = [];
+  public selectedVideos: Array<any> = [];
   masterToggle: boolean = false;  // State of the master toggle
 
   public tags: string[] = [];
@@ -42,8 +42,12 @@ export class MediaComponent implements OnInit {
       this.selectedTag = tag
       try {
         this.selectedVideos.forEach(async (video) => {
+          video.tag = tag;
+          video.tags.push(tag);
           await this.db.addTagToVideo(tag, video.id);
         });
+        this.selectedVideos = [];
+        this.changeRef.detectChanges();
       } catch (error) {
         console.error('Error assigning tag:', error);
       }
@@ -101,11 +105,11 @@ export class MediaComponent implements OnInit {
     if (this.masterToggle) {
       this.selectedVideos = this.selectedVideos.concat(this.videos); // Select all
     } else {
-      this.selectedVideos = []; // Deselect all
+      this.selectedVideos = [];
     }
   }
 
-  toggleSelection(video: { id: string; url: string }, event: any): void {
+  toggleSelection(video: any, event: any): void {
     if (event.target.checked) {
       this.selectedVideos.push(video);
     } else {

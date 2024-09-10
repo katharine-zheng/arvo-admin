@@ -1,5 +1,7 @@
-<h2 mat-dialog-title>Create New Tag</h2>
-<div mat-dialog-content>
+<h2 mat-dialog-title>Create a new Tag</h2>
+<mat-dialog-content class="mat-typography">
+  <p>Tip: tags should not contain specific product names. <br/>
+    Instead, use generic names like "tutorial" or "testimonial"</p>
   <div *ngFor="let tag of tags">
     {{tag}} <button (click)="deleteTag(tag)">x</button>
   </div>
@@ -7,7 +9,7 @@
     <mat-label>Tag Name</mat-label>
     <input matInput [(ngModel)]="newTag" />
   </mat-form-field>
-</div>
+</mat-dialog-content>
 <div mat-dialog-actions>
   <button mat-button (click)="close()">Cancel</button>
   <button mat-button [disabled]="!newTag.trim()" (click)="createTag()">Update</button>

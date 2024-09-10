@@ -36,7 +36,7 @@ export class StorageService {
               url: downloadURL,
               products: productId ? [productId] : [],
               journeys: productId ? [journeyId] : [],
-              uploadedAt: Date.now(),
+              uploadTime: Date.now(),
               tag: tag || "",
               tags: [],
             };
