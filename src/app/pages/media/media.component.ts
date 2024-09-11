@@ -12,17 +12,52 @@ import { TagFormComponent } from '../../modals/tag-form/tag-form.component';
 })
 export class MediaComponent implements OnInit {
   public videos: any[] = [];
+  public filteredVideos: any[] = [];
   public isDeleting: boolean = false;
   public selectedVideos: Array<any> = [];
+  public unassignedVideos: any[] = [];
   masterToggle: boolean = false;  // State of the master toggle
 
+  public journeys: any[] = [];
   public tags: string[] = [];
+  public selectedJourneyId: string = "";
   public selectedTag: string = "";
+  public searchTerm: string = '';  // Search input value
   constructor(private changeRef: ChangeDetectorRef, private auth: AuthService, private db: DbService, private storage: StorageService, private dialog: MatDialog) {}
 
   ngOnInit(): void {
     this.loadTags();
     this.getVideos();
+    this.fetchJourneys();
+  }
+
+  async fetchJourneys() {
+    this.journeys = await this.db.getJourneys();
+  }
+
+  filterVideosWithoutTag(): void {
+    this.filteredVideos = this.videos.filter(video => !video.tag || video.tag.trim() === '');
+  }
+
+  filterVideos() {
+    if (this.searchTerm) {
+      this.filteredVideos = this.videos.filter(video =>
+        video.originalName.toLowerCase().includes(this.searchTerm.toLowerCase())
+      );
+    } else {
+      // If there's no search term, show all videos
+      this.filteredVideos = [...this.videos];
+    }
+  }
+
+  filterVideosByTag(tag: string) {
+    this.selectedTag = tag;
+    if (this.selectedTag && this.selectedTag !== '') {
+      this.filteredVideos = this.videos.filter(video => video.tag === this.selectedTag);
+    } else {
+      // If no tag is selected, show all videos
+      this.filteredVideos = this.videos;
+    }
   }
 
   async loadTags() {
@@ -47,6 +82,7 @@ export class MediaComponent implements OnInit {
           await this.db.addTagToVideo(tag, video.id);
         });
         this.selectedVideos = [];
+        this.unassignedVideos = this.videos.filter(video => !video.tag || video.tag.trim() === '');
         this.changeRef.detectChanges();
       } catch (error) {
         console.error('Error assigning tag:', error);
@@ -60,6 +96,8 @@ export class MediaComponent implements OnInit {
     const accountId = this.auth.uid;
     if (accountId) {
       this.videos = await this.db.getVideos(accountId);
+      this.filteredVideos = this.videos;
+      this.unassignedVideos = this.videos.filter(video => !video.tag || video.tag.trim() === '');
     }
   }
 
@@ -84,7 +122,6 @@ export class MediaComponent implements OnInit {
       if (!this.tags.includes(newTag)) {
         await this.db.addTagToAccount(newTag);
         this.tags.push(newTag); // Add the new tag to the local array
-        alert('New tag created and assigned successfully!');
       } else {
         alert('Tag already exists');
       }
@@ -117,6 +154,21 @@ export class MediaComponent implements OnInit {
     }
   }
 
+  // Add selected videos to the journey document
+  async addSelectedVideosToJourney() {
+    if (!this.selectedJourneyId) {
+      console.error("No journey selected");
+      return;
+    }
+  
+    if (this.selectedVideos.length === 0) {
+      console.error("No videos selected");
+      return;
+    }
+
+    await this.db.addVideosToProduct(this.selectedJourneyId, this.selectedVideos);
+  }
+
   deleteVideo(video: any): void {
     const videoId = video.id;
     const videoUrl = video.url;
@@ -125,8 +177,9 @@ export class MediaComponent implements OnInit {
       () => {
         // Remove the video from the list after deletion
         this.videos = this.videos.filter(video => video.id !== videoId);
+        this.unassignedVideos = this.videos.filter(video => !video.tag || video.tag.trim() === '');
+        this.changeRef.detectChanges();
         video.isDeleting = false;
-        alert('Video deleted successfully!');
       },
       (error) => {
         console.error('Error deleting video:', error);

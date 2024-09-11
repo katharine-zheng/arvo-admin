@@ -12,7 +12,8 @@ import { Router } from '@angular/router';
   styleUrl: './products.component.css'
 })
 export class ProductsComponent {
-  displayedColumns: string[] = ['name', 'journeys', 'actions'];
+  journeys: any = {};
+  displayedColumns: string[] = ['name', 'pre-purchase journey', 'post-purchase journey', 'actions'];
   products: any[] = [];
   filteredProducts: any[] = [];
   // view: 'grid' | 'table' = 'grid';
@@ -40,8 +41,9 @@ export class ProductsComponent {
     this.view = view;
   }
 
-  openJourney() {
-    this.router.navigate(["journey"]);
+  openJourney(product: any) {
+    this.db.setProductData(product);  // Set the product data in the service
+    this.router.navigate(['/products', product.id, 'journey']);
   }
 
   openProductForm() {
@@ -90,7 +92,7 @@ export class ProductsComponent {
   }
 
   async deleteProduct(productId: string) {
-    await this.db.deleteProduct(productId);
+    await this.db.deleteDocument("products", productId);
     this.products = this.products.filter(product => product.id !== productId);
   }
 
@@ -108,8 +110,6 @@ export class ProductsComponent {
 
     this.qrCodeElement = document.getElementById('qrCodeContainer'); // Get the container where the QR code will be rendered
 
-    this.qrCodeService.generateQRCode(data, logoUrl, this.qrCodeElement!);
+    // this.qrCodeService.generateQRCode(data, logoUrl, this.qrCodeElement!);
   }
-  
-  
 }

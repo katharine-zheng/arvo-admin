@@ -7,6 +7,7 @@ import { DashboardComponent } from './pages/dashboard/dashboard.component';
 import { ProductsComponent } from './pages/products/products.component';
 import { SettingsComponent } from './pages/settings/settings.component';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { DragDropModule } from '@angular/cdk/drag-drop';
 import { MatTableModule } from '@angular/material/table'; // Import the MatTableModule
 import { MatFormFieldModule } from '@angular/material/form-field'; // Optional for form fields in the table
 import { MatInputModule } from '@angular/material/input'; // Optional for input in the table
@@ -27,6 +28,8 @@ import { JourneyComponent } from './pages/journey/journey.component';
 import { MediaUploadComponent } from './components/media-upload/media-upload.component';
 import { AuthComponent } from './pages/auth/auth.component';
 import { TagFormComponent } from './modals/tag-form/tag-form.component';
+import { JourneysComponent } from './pages/journeys/journeys.component';
+import { QRCodeComponent } from './modals/qrcode/qrcode.component';
 
 @NgModule({
   declarations: [
@@ -40,13 +43,16 @@ import { TagFormComponent } from './modals/tag-form/tag-form.component';
     JourneyComponent,
     MediaUploadComponent,
     AuthComponent,
-    TagFormComponent
+    TagFormComponent,
+    JourneysComponent,
+    QRCodeComponent
   ],
   imports: [
     BrowserModule,
     FormsModule,
     ReactiveFormsModule,
     AppRoutingModule,
+    DragDropModule,
     MatDialogModule,
     MatFormFieldModule,
     MatInputModule,

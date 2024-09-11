@@ -1,0 +1,10 @@
+<mat-dialog-content>
+  <h2>{{data.journey.name}}</h2>
+  <div id="qrCodeContainer"></div>
+
+  <h3>Download</h3>
+  <button (click)="download('png')">PNG</button>
+  <button (click)="download('jpeg')">JPG</button>
+  <button (click)="download('webp')">WEBP</button>
+  <button (click)="download('svg')">SVG</button>
+</mat-dialog-content>

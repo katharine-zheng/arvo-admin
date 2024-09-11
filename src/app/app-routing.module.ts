@@ -7,11 +7,13 @@ import { SettingsComponent } from './pages/settings/settings.component';
 import { JourneyComponent } from './pages/journey/journey.component';
 import { authGuard } from './guards/auth.guard';
 import { AuthComponent } from './pages/auth/auth.component';
+import { JourneysComponent } from './pages/journeys/journeys.component';
 
 const routes: Routes = [
   { path: 'auth', component: AuthComponent },
   { path: 'dashboard', component: DashboardComponent, canActivate: [authGuard] },
   { path: 'media', component: MediaComponent, canActivate: [authGuard] },
+  { path: 'journeys', component: JourneysComponent, canActivate: [authGuard] },
   { path: 'products', component: ProductsComponent, canActivate: [authGuard] },
   { path: 'products/:pId/journey', component: JourneyComponent, canActivate: [authGuard]},
   { path: 'journey', component: JourneyComponent, canActivate: [authGuard] },

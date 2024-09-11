@@ -24,7 +24,6 @@
         <div class="item-details">
           <h3>{{ product.name }}</h3>
           <p>Journey</p>
-          <!-- <p>{{ product.description || 'No description available' }}</p> -->
           <div class="product-actions">
             <button mat-raised-button color="primary" (click)="editProduct(product)">Edit</button>
             <button mat-raised-button color="primary" (click)="openDeleteDialog(product)">Delete</button>
@@ -45,13 +44,28 @@
           <td mat-cell *matCellDef="let product">{{ product.name }}</td>
         </ng-container>
 
-        <ng-container matColumnDef="journeys">
-          <th mat-header-cell *matHeaderCellDef>Journeys </th>
+        <ng-container matColumnDef="pre-purchase journey">
+          <th mat-header-cell *matHeaderCellDef>Pre-Purchase Journeys </th>
           <td mat-cell *matCellDef="let product">
-            <!-- <ng-container *ngIf="product."> -->
-              <button mat-raised-button color="accent" [routerLink]="['/products', product.id, 'journey']">
+            <div *ngFor="let journey of product.journeys.prePurchase">
+              {{journey}}
+              {{journey.name}}
+            </div>
+              <button mat-raised-button color="accent" (click)="openJourney(product)">
                 Add Journey
               </button>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="post-purchase journey">
+          <th mat-header-cell *matHeaderCellDef>Post-Purchase Journeys </th>
+          <td mat-cell *matCellDef="let product">
+            <div *ngFor="let journey of product.journeys.postPurchase">
+              {{journey.name}}
+            </div>
+            <button mat-raised-button color="accent" (click)="openJourney(product)">
+              Add Journey
+            </button>
           </td>
         </ng-container>
       

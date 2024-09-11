@@ -1,37 +1,97 @@
 <div class="journey-container">
-  <h1>Design Journey for Product/Journey ID: {{ journeyId }}</h1>
+  <div class="design-box">
+    <div>
+      <div class="controls-section">
+        <form [formGroup]="journeyForm" (ngSubmit)="saveJourney()">
+          <div>
+            <label for="name">Journey Name</label>
+            <input id="name" type="text" formControlName="name" placeholder="Enter journey name">
+          </div>
 
-  <div class="journey-container">
-    <div class="design-box">
-      <div>
-        <div class="journey-form">
-          <h2>Create/Update Product Journey</h2>
+          <div>
+            <label for="type">Journey Type</label>
+            <select id="type" formControlName="type">
+              <option *ngFor="let type of journeyTypes" [value]="type.value">{{ type.label }}</option>
+            </select>
+          </div>
+
+          <div class="filter-section">
+            <label for="tagFilter">Filter by Tag:</label>
+            <select formControlName="tagFilter" id="tagFilter">
+              <option value="">All</option>
+              <option *ngFor="let tag of availableTags" [value]="tag">{{ tag }}</option>
+            </select>
+          </div>
+
+          <button (click)="setDisplayMode('selected')">Selected</button>
+          <button (click)="setDisplayMode('all')">All videos</button>
+
+          <div class="filter-section">
+            <label for="tagFilter">Filter by Tag:</label>
+            <select formControlName="tagFilter" id="tagFilter">
+              <option value="">All Tags</option>
+              <option *ngFor="let tag of availableTags" [value]="tag">{{ tag }}</option>
+            </select>
+          </div>
         
-          <form [formGroup]="journeyForm" (ngSubmit)="saveJourney()">
-            
-            <div>
-              <label for="type">Journey Type</label>
-              <select id="type" formControlName="type">
-                <option *ngFor="let type of journeyTypes" [value]="type.value">{{ type.label }}</option>
-              </select>
-            </div>
+          <!-- Display options section -->
+          <div class="display-options">
+            <label>Display:</label>
+            <button type="button" (click)="setDisplayMode('all')">All Videos</button>
+            <button type="button" (click)="setDisplayMode('selected')">Selected Videos</button>
+          </div>
         
-            <div>
-              <label for="videos">Select Videos</label>
-              <div *ngFor="let video of videos">
-                <input type="checkbox" [value]="video.id" (change)="onVideoSelect($event, video)">
-                {{ video.name }}
+          <!-- Clear filters -->
+          <button type="button" (click)="clearFilters()">Clear Filters</button>
+          
+          <div class="videos-grid">
+            <div *ngFor="let video of displayedVideos" 
+              (click)="onVideoSelected(video)" 
+              [ngClass]="{'selected': isSelected(video)}" 
+              class="video-grid-item">
+              <div class="video-thumbnail">
+                <img [src]="video.thumbnailUrl" alt="{{ video.name }}">
+              </div>
+              <div class="video-title">
+                {{ video.title }}
               </div>
             </div>
-        
-            <button type="submit" [disabled]="!journeyForm.valid">Save Journey</button>
-          </form>
-        </div>
-      </div>
-      <div class="preview-box">
-        
+          </div>
+
+          sort
+          <div cdkDropList (cdkDropListDropped)="drop($event)" class="video-list">
+            <div *ngFor="let video of selectedVideos; let i = index" 
+                cdkDrag 
+                class="video-item" 
+                [ngClass]="{'selected': isSelected(video)}">
+              <div class="video-thumbnail" *cdkDragPreview>
+                <img [src]="video.thumbnailUrl" alt="{{ video.title }}">
+              </div>
+              <p>{{ video.tag }} - {{video.name}}</p>
+            </div>
+          </div>
+      
+          <!-- <div>
+            <label for="videos">Select Videos</label>
+            <div *ngFor="let video of displayedVideos">
+              <input type="checkbox" [value]="video.id" (change)="onVideoSelect($event, video)" [checked]="video.selected">
+              {{ video.name }}
+            </div>
+          </div> -->
+          <button type="submit" [disabled]="!journeyForm.valid">Save Journey</button>
+        </form>
       </div>
     </div>
-    
+    <div class="preview-box">
+      <div *ngFor="let video of journeyForm.controls['videos'].value">
+        {{video.tag}} -- {{video.name}}
+        <div class="item-image">
+          <img *ngIf="video.thumbnailUrl; else placeholder" [src]="video.thumbnailUrl" alt="{{ video.name }}">
+          <ng-template #placeholder>
+            <div class="image-placeholder">No Image Available</div>
+          </ng-template>
+        </div>
+      </div>
+    </div>
   </div>
 </div>

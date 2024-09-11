@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, EventEmitter, Output } from '@angular/core';
+import { ChangeDetectorRef, Component, EventEmitter, Input, Output } from '@angular/core';
 import { StorageService } from '../../services/storage.service';
 import { AuthService } from '../../services/auth.service';
 
@@ -17,6 +17,7 @@ export class MediaUploadComponent {
   isUploading: boolean = false;
   isDragging: boolean = false;  // State for drag-over effect
 
+  @Input() view: string = ""; 
   @Output() onVideoUploaded: EventEmitter<any> = new EventEmitter<any>();
 
   constructor(private changeRef: ChangeDetectorRef, private storage: StorageService, private auth: AuthService) {}

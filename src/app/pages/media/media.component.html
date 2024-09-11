@@ -5,7 +5,44 @@
   <button (click)="deleteSelectedVideos()">Delete video(s)</button>
 </ng-container>
 
+<app-media-upload
+  view="button"
+  (onVideoUploaded)="updateVideos($event)"
+  ></app-media-upload>
+
+<ng-container *ngIf="unassignedVideos.length > 0">
+  <p>You have {{unassignedVideos.length}} video(s) without tags. Only videos with tags can be added to a journey</p>
+</ng-container>
+
+  <!-- Journey selection dropdown -->
+  <div class="journey-select">
+    <label for="journeySelect">Select Journey:</label>
+    <select id="journeySelect" [(ngModel)]="selectedJourneyId">
+      <option *ngFor="let journey of journeys" [value]="journey.id">{{ journey.name }}</option>
+    </select>
+  </div>
+<button (click)="addSelectedVideosToJourney()">Add Selected Videos to Journey</button>
+
+<div class="search-bar">
+  <input type="text" placeholder="Search by video name" [(ngModel)]="searchTerm" (input)="filterVideos()" />
+</div>
+
 <ng-container *ngIf="tags && tags.length > 0">
+  <div class="tags">
+    <label>Filter: </label>
+    <div class="tag">
+      <button (click)="filterVideosByTag('')">All</button>
+    </div>
+    <div class="tag" *ngFor="let tag of tags">
+      <button (click)="filterVideosByTag(tag)"> {{tag}} </button>
+    </div>
+
+    <ng-container *ngIf="unassignedVideos.length > 0">
+      <div class="tag">
+        <button (click)="filterVideosWithoutTag()">No tag assigned</button>
+      </div>
+    </ng-container>
+  </div>
   <div class="tags">
     <label>Tags: </label>
     <div class="tag" *ngFor="let tag of tags">
@@ -18,11 +55,12 @@
 <div class="grid-container">
   <div class="grid-item">
     <app-media-upload
+    view="grid"
     (onVideoUploaded)="updateVideos($event)"
     ></app-media-upload>
   </div>
 
-  <div class="grid-item" *ngFor="let video of videos">
+  <div class="grid-item" *ngFor="let video of filteredVideos">
     <input type="checkbox" (change)="toggleSelection(video, $event)" [checked]="selectedVideos.includes(video)"/>
     <div class="item-image">
       <img *ngIf="video.thumbnailUrl; else placeholder" [src]="video.thumbnailUrl" alt="{{ video.name }}">

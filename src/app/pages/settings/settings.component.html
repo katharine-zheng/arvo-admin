@@ -1,1 +1,20 @@
-<p>settings works!</p>
+<div class="qr-code-generator">
+  <label for="dotsColor">Main Color:</label>
+  <input type="color" [(ngModel)]="qrCodeSettings.dotsOptions.color" (change)="updateQRCode()" id="dotsColor" />
+
+  <label for="dotsColor">Dots Color:</label>
+  <input type="color" [(ngModel)]="qrCodeSettings.cornersSquareOptions.color" (change)="updateQRCode()" id="dotsColor" />
+
+  <!-- note: currently not working; Input field for uploading a logo -->
+  <!-- <label for="qrLogo">Upload Logo:</label>
+  <input id="qrLogo" type="file" (change)="uploadLogo($event)" /> -->
+
+  <!-- Remove logo button -->
+  <button *ngIf="qrCodeSettings.image" (click)="removeLogo()">Remove Logo</button>
+
+
+  <!-- Display the QR code -->
+  <div id="qrCodeContainer"></div>
+
+  <button (click)="update()">Update</button>
+</div>

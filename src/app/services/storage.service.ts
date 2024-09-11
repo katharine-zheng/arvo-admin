@@ -31,6 +31,7 @@ export class StorageService {
             // Save metadata in Firestore
             const videoMetadata = {
               name: fileName,
+              originalName: file.name,
               accountId: accountId,
               thumbnailUrl: thumbnailUrl,
               url: downloadURL,

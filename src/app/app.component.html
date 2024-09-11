@@ -5,7 +5,7 @@
         @for (item of [
             { title: 'Dashboard', link: '' },
             { title: 'Media Library', link: 'media' },
-            { title: 'Products', link: 'products' },
+            { title: 'Journeys', link: 'journeys' },
             { title: 'Settings', link: 'settings' },
           ]; track item.title) {
             <button (click)="openPage(item.title, item.link)">{{item.title}}</button>
