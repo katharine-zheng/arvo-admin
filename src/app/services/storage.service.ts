@@ -8,12 +8,12 @@ import { DbService } from './db.service';
 })
 export class StorageService {
 
-  constructor(private storage: Storage, private dbService: DbService) {}
+  constructor(private storage: Storage, private db: DbService) {}
 
-  uploadVideo(file: File, thumbnailUrl: string, accountId: string, productId?: string, journeyId?: string, tag?: string): Observable<any> {
+  uploadMedia(file: File, thumbnailUrl: string, accountId: string, productId?: string, journeyId?: string, tag?: string): Observable<any> {
     return new Observable<any>((observer) => {
       const fileName = `${Date.now()}_${file.name}`;
-      const filePath = `videos/${accountId}/${fileName}`; // Single storage path
+      const filePath = `media/${accountId}/${fileName}`; // Single storage path
       const storageRef = ref(this.storage, filePath);
       const uploadTask = uploadBytesResumable(storageRef, file);
 
@@ -29,23 +29,23 @@ export class StorageService {
         () => {
           getDownloadURL(uploadTask.snapshot.ref).then(async (downloadURL) => {
             // Save metadata in Firestore
-            const videoMetadata = {
+            const data = {
               name: fileName,
-              originalName: file.name,
               accountId: accountId,
-              thumbnailUrl: thumbnailUrl,
-              url: downloadURL,
-              products: productId ? [productId] : [],
-              journeys: productId ? [journeyId] : [],
-              uploadTime: Date.now(),
-              tag: tag || "",
+              // journeys: productId ? [journeyId] : [],
+              originalName: file.name,
+              // products: productId ? [productId] : [],
               tags: [],
+              thumbnailUrl: thumbnailUrl,
+              type: 'video',
+              uploadTime: Date.now(),
+              url: downloadURL,
             };
 
-            const videoId = await this.dbService.addVideo(videoMetadata);
-            await this.uploadThumbnail(thumbnailUrl, fileName, videoId);
-            // await this.dbService.saveVideoThumbnail(videoId, downloadURL);
-            observer.next({ progress: 100, downloadURL, video: videoMetadata });
+            const mediaId = await this.db.addMedia(data);
+            await this.uploadThumbnail(thumbnailUrl, fileName, mediaId);
+            // await this.db.saveMediaThumbnail(mediaId, downloadURL);
+            observer.next({ progress: 100, downloadURL, media: data });
             observer.complete();
           });
         }
@@ -53,29 +53,29 @@ export class StorageService {
     });
   }
 
-  // Method to delete a video from Firebase Storage and Firestore
-  deleteVideo(videoId: string, videoUrl: string): Observable<void> {
+  // Method to delete a media from Firebase Storage and Firestore
+  deleteMedia(mediaId: string, mediaUrl: string): Observable<void> {
     return new Observable<void>((observer) => {
-      const storageRef = ref(this.storage, videoUrl); // Reference to the video in Storage
+      const storageRef = ref(this.storage, mediaUrl); // Reference to the media in Storage
 
-      // First, delete the video from Firebase Storage
+      // First, delete the media from Firebase Storage
       deleteObject(storageRef)
-        .then(() => {
-          // After deleting the video from storage, remove its metadata from Firestore
-          this.dbService.deleteVideo(videoId);
+        .then(async () => {
+          // After deleting the media from storage, remove its metadata from Firestore
+          await this.db.deleteMedia(mediaId);
         })
         .then(() => {
-          observer.next(); // Notify that the video was successfully deleted
+          observer.next(); // Notify that the media was successfully deleted
           observer.complete();
         })
         .catch((error) => {
-          console.error('Error deleting video:', error);
+          console.error('Error deleting media:', error);
           observer.error(error); // Emit error if deletion fails
         });
     });
   }
 
-  uploadThumbnail(thumbnailDataURL: string, fileName: string, videoId: string): Promise<string> {
+  uploadThumbnail(thumbnailDataURL: string, fileName: string, mediaId: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const storageRef = ref(this.storage, `thumbnails/${fileName}.jpg`);
       

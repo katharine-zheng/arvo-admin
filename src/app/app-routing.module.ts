@@ -8,12 +8,16 @@ import { JourneyComponent } from './pages/journey/journey.component';
 import { authGuard } from './guards/auth.guard';
 import { AuthComponent } from './pages/auth/auth.component';
 import { JourneysComponent } from './pages/journeys/journeys.component';
+import { ProductComponent } from './pages/product/product.component';
 
 const routes: Routes = [
   { path: 'auth', component: AuthComponent },
   { path: 'dashboard', component: DashboardComponent, canActivate: [authGuard] },
   { path: 'media', component: MediaComponent, canActivate: [authGuard] },
+  { path: 'media/product/:id', component: MediaComponent, canActivate: [authGuard] },
   { path: 'journeys', component: JourneysComponent, canActivate: [authGuard] },
+  { path: 'product', component: ProductComponent, canActivate: [authGuard] },
+  { path: 'product/:id', component: ProductComponent, canActivate: [authGuard] },
   { path: 'products', component: ProductsComponent, canActivate: [authGuard] },
   { path: 'products/:pId/journey', component: JourneyComponent, canActivate: [authGuard]},
   { path: 'journey', component: JourneyComponent, canActivate: [authGuard] },

@@ -24,7 +24,7 @@ export class SettingsComponent {
 
     const logoUrl = "";
     if (this.qrCodeElement) {
-      this.qrCodeElement.innerHTML = ''; // Clear existing QR code if any
+      this.qrCodeElement.innerHTML = ""; // Clear existing QR code if any
     }
 
     this.qrCodeElement = document.getElementById('qrCodeContainer'); // Get the container where the QR code will be rendered

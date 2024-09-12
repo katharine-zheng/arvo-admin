@@ -10,10 +10,10 @@ import { QRCODE } from '../constants/qrcode';
 export class DbService {
 
   private _account: any;
-  private _videoTags: string[] = [];
+  private _mediaTags: string[] = [];
   private _journeys: any[] = [];
   private _products: any[] = [];
-  private _videos: any[] = [];
+  private _media: any[] = [];
 
   private productSource = new BehaviorSubject<any>(null);
   currentProduct = this.productSource.asObservable();
@@ -24,8 +24,8 @@ export class DbService {
     return this._account;
   }
 
-  get videoTags() {
-    return this._videoTags;
+  get mediaTags() {
+    return this._account.mediaTags;
   }
 
   get journeys() {
@@ -36,8 +36,8 @@ export class DbService {
     return this._products;
   }
   
-  get videos() {
-    return this._videos;
+  get media() {
+    return this._media;
   }
 
   constructor(private firestore: Firestore) {}
@@ -75,7 +75,7 @@ export class DbService {
       if (docSnap.exists()) {
         const account: any = docSnap.data();
         this._account = account;
-        this._videoTags = account.videoTags;
+        this._mediaTags = account.mediaTags;
         return account;
       }
     } catch (error) {
@@ -134,13 +134,30 @@ export class DbService {
     updateDoc(userRef, {'settings.qrCode':  qrCodeSettings});
   }
 
+  async addTagToAccount(tag: string) {
+    const accountDocRef = doc(this.firestore, `accounts/${this._account.id}`);
+
+    // Update the account doc by adding the tag to the tags array if it doesn't exist
+    await updateDoc(accountDocRef, {
+      mediaTags: arrayUnion(tag),
+    });
+    this._mediaTags = this.account.mediaTags;
+  }
+
+  async getProducts() {
+    let list: any[] = [];
+    const q = query(collection(this.firestore, "products"),
+      where("accountId", "==", this._account.id));
+    const querySnapshot = await getDocs(q);
+    querySnapshot.forEach((doc) => {
+      list.push({id: doc.id, ...doc.data()})
+    });
+    this._products = list;
+    return list;
+  }
+
   async createProduct(item: any) {
     try {
-      item.accountId = this._account.id;
-      item.journeys = {
-        'prePurchase': [],
-        'postPurchase': []
-      }
       item['dateCreated'] = serverTimestamp();
       item['dateUpdated'] = serverTimestamp();
       await addDoc(collection(this.firestore, "products"), item);
@@ -161,7 +178,6 @@ export class DbService {
           console.error(`Account document with id ${id} does not exist.`);
           return false;
       }
-
       data['updateTime'] = serverTimestamp();
       await updateDoc(userRef, data);
     } catch (error) {
@@ -171,18 +187,6 @@ export class DbService {
       // throw new Error(customErrorMessage);
     }
     return;
-  }
-
-  async getProducts() {
-    let list: any[] = [];
-    const q = query(collection(this.firestore, "products"),
-      where("accountId", "==", this._account.id));
-    const querySnapshot = await getDocs(q);
-    querySnapshot.forEach((doc) => {
-      list.push({id: doc.id, ...doc.data()})
-    });
-    this._products = list;
-    return list;
   }
 
   async getJourneys() {
@@ -197,14 +201,11 @@ export class DbService {
     return list;
   }
 
-  async createJourney(item: any) {
+  async createJourney(data: any) {
     try {
-      const videoIds = item.videos.map((video: any) => video.id);
-      item.accountId = this._account.id;
-      item.videoIds = videoIds;
-      item['dateCreated'] = serverTimestamp();
-      item['dateUpdated'] = serverTimestamp();
-      await addDoc(collection(this.firestore, "journeys"), item);
+      data['dateCreated'] = serverTimestamp();
+      data['dateUpdated'] = serverTimestamp();
+      await addDoc(collection(this.firestore, "journeys"), data);
     } catch (error) {
       // this.handleError(error);
       // await this.logError(error, "Admin.DbService.createSubscription");
@@ -222,8 +223,6 @@ export class DbService {
         console.error(`Account document with id ${id} does not exist.`);
         return false;
       }
-      const videoIds = data.videos.map((video: any) => video.id);
-      data.videoIds = videoIds;
       data['updateTime'] = serverTimestamp();
       await updateDoc(userRef, data);
     } catch (error) {
@@ -315,13 +314,7 @@ export class DbService {
     }
   }
 
-  async addVideo(videoMetadata: any) {
-    const videoRef = collection(this.firestore, 'videos');
-    const docRef = await addDoc(videoRef, videoMetadata);
-    return docRef.id;
-  }
-
-  async getVideos(accountId: string, productId?: string, journeyId?: string) {
+  async getMedia(accountId: string, productId?: string, journeyId?: string) {
     let list: any[] = [];
     let queries: QueryConstraint[] = [where('accountId', '==', accountId)];
 
@@ -333,146 +326,153 @@ export class DbService {
       queries.push(where('journeyIds', 'array-contains', journeyId))
     }
 
-    const mediaLibraryVideos = query(collection(this.firestore, 'videos'), ...queries);
-    const querySnapshot = await getDocs(mediaLibraryVideos);
+    const q = query(collection(this.firestore, 'media'), ...queries);
+    const querySnapshot = await getDocs(q);
     querySnapshot.forEach((doc) => {
       list.push({id: doc.id, ...doc.data()})
     });
-    this._videos = list;
+    this._media = list;
     return list;
   }
 
-  async deleteVideo(videoId: string) {
-    const videoDocRef = doc(this.firestore, `videos/${videoId}`);
-    await deleteDoc(videoDocRef);
+  async addMedia(data: any) {
+    const mediaRef = collection(this.firestore, 'media');
+    const docRef = await addDoc(mediaRef, data);
+    return docRef.id;
+  }
 
-    // 2. Find all journeys that reference this videoId in their videoIds array
-    const journeysRef = collection(this.firestore, 'journeys');
-    const journeyQuery = query(journeysRef, where('videoIds', 'array-contains', videoId));
-    const journeySnapshots = await getDocs(journeyQuery);
+  async deleteMedia(mediaId: string) {
+    const mediaDocRef = doc(this.firestore, `media/${mediaId}`);
+    await deleteDoc(mediaDocRef);
 
-    // 3. Loop through each journey document and remove the video reference
-    journeySnapshots.forEach(async (journeyDoc) => {
-      const journeyData = journeyDoc.data();
+    const productsRef = collection(this.firestore, 'products');
+    const productQuery = query(productsRef, where('mediaIds', 'array-contains', mediaId));
+    const productSnapshots = await getDocs(productQuery);
 
-      // Remove the video from the 'videos' array
-      const updatedVideos = journeyData['videos'].filter((video: any) => video.id !== videoId);
+    productSnapshots.forEach(async (productDoc) => {
+      const journeyData = productDoc.data();
 
-      // Remove the videoId from the 'videoIds' array
-      const updatedVideoIds = journeyData['videoIds'].filter((id: string) => id !== videoId);
+      const mediaList = journeyData['mediaList'].filter((media: any) => media.id !== mediaId);
+      const mediaIds = journeyData['mediaIds'].filter((id: string) => id !== mediaId);
 
-      // Update the journey document with the modified videos and videoIds arrays
-      const journeyRef = doc(this.firestore, `journeys/${journeyDoc.id}`);
+      // Update the journey document with the modified media and mediaIds arrays
+      const journeyRef = doc(this.firestore, `products/${productDoc.id}`);
       await updateDoc(journeyRef, {
-        videos: updatedVideos,
-        videoIds: updatedVideoIds
+        mediaList,
+        mediaIds
       });
     });
   }
 
-  saveVideoThumbnail(videoId: string, thumbnailURL: string): Promise<void> {
-    const videoDocRef = doc(this.firestore, `videos/${videoId}`);
-    return updateDoc(videoDocRef, {
+  saveMediaThumbnail(mediaId: string, thumbnailURL: string): Promise<void> {
+    const mediaDocRef = doc(this.firestore, `media/${mediaId}`);
+    return updateDoc(mediaDocRef, {
       thumbnailURL: thumbnailURL
     });
   }
 
-  async addTagToAccount(tag: string) {
-    const accountDocRef = doc(this.firestore, `accounts/${this._account.id}`);
-
-    // Update the account doc by adding the tag to the tags array if it doesn't exist
-    await updateDoc(accountDocRef, {
-      videoTags: arrayUnion(tag),
-    });
-    this._videoTags = this.account.videoTags;
-  }
-
-  async addVideosToProduct(journeyId: string, videos: any[]) {
+  async addMediaToProduct(productId: string, media: any[]) {
     // Reference the journey document
-    const journeyRef = doc(this.firestore, `journeys/${journeyId}`);
-    const videoIds = videos.map((video: any) => video.id);
+    const productRef = doc(this.firestore, `products/${productId}`);
+    const mediaIds = media.map((media: any) => media.id);
 
     try {
-      // Update the journey document by adding the selected videos to the 'videos' array
-      await updateDoc(journeyRef, {
-        videos: arrayUnion(...videos),
-        videoIds: videoIds,
+      // Update the journey document by adding the selected media to the 'mediaList' array
+      await updateDoc(productRef, {
+        mediaList: arrayUnion(...media),
+        mediaIds: mediaIds,
       });
-      console.log('Videos successfully added to the journey');
     } catch (error) {
-      console.error('Error adding videos to the journey:', error);
+      console.error('Error adding media to the journey:', error);
     }
   }
 
-  async addTagToVideo(tag: string, videoId: string) {
-    // Now update the video document with the selected tag
-    const videoDocRef = doc(this.firestore, `videos/${videoId}`);
-    await updateDoc(videoDocRef, {
-      tags: arrayUnion(tag),
-      tag: tag,
+  async addTagToMedia(tag: string, media: any) {
+    const mediaId = media.id;
+    const mediaDocRef = doc(this.firestore, `media/${mediaId}`);
+    await updateDoc(mediaDocRef, {
+      tags: arrayUnion(tag)
     });
 
-    // 2. Find all journey documents where this video exists and update the video tag there as well
-    const journeysRef = collection(this.firestore, 'journeys');
-
-    // Query to find all journeys that contain this video
-    const journeyQuery = query(journeysRef, where('videoIds', 'array-contains', videoId));
-    const journeySnapshots = await getDocs(journeyQuery);
+    const productsRef = collection(this.firestore, 'products');
+    const productQuery = query(productsRef, where('mediaIds', 'array-contains', mediaId));
+    const productSnapshots = await getDocs(productQuery);
     
-    // Loop through all journeys that contain the video and update the tag in each one
-    journeySnapshots.forEach(async (journeyDoc) => {
-      const journeyData = journeyDoc.data();
-      const updatedVideos = journeyData['videos'].map((video: any) => {
-        if (video.id === videoId) {
-          // Update the tag of the video inside the journey
+    productSnapshots.forEach(async (productDoc) => {
+      const productData = productDoc.data();
+      
+      // Map over mediaList to find the media item and use arrayUnion to add the new tag
+      const updatedMediaList = productData['mediaList'].map((media: any) => {
+        if (media.id === mediaId) {
           return {
-            ...video,
-            tag: tag
+            ...media,
+            tags: [...media.tags, tag]
           };
         }
-        return video;
+        return media;
       });
-
-      // Update the journey document with the modified video array
-      const journeyRef = doc(this.firestore, `journeys/${journeyDoc.id}`);
-      await updateDoc(journeyRef, {
-        videos: updatedVideos
+  
+      // Update the product with the modified mediaList
+      const productRef = doc(this.firestore, `products/${productDoc.id}`);
+      await updateDoc(productRef, {
+        mediaList: updatedMediaList
       });
     });
   }
 
   // Remove a tag from the categories array in the account doc
-  async deleteTag(tag: string): Promise<void> {
+  async removeTagFromAccount(tag: string): Promise<void> {
     const accountDocRef = doc(this.firestore, `accounts/${this._account.id}`);
 
     // Remove the tag from the account's categories array
     await updateDoc(accountDocRef, {
-      videoTags: arrayRemove(tag),
+      tags: arrayRemove(tag),
     });
 
-    // Optionally, unassign the tag from all videos that use it (if required)
-    const videoCollectionRef = collection(this.firestore, 'videos');
-    const q = query(videoCollectionRef, where('tag', '==', tag));
+    // Optionally, unassign the tag from all media that use it (if required)
+    const mediaCollection = collection(this.firestore, 'media');
+    const q = query(mediaCollection, where('tags', 'array-contains', tag));
 
     const querySnapshot = await getDocs(q);
     querySnapshot.forEach((docSnapshot) => {
-      updateDoc(docSnapshot.ref, { category: '' }); // Unassign the category from the video
+      updateDoc(docSnapshot.ref, { category: '' }); // Unassign the category from the media
     });
 
-    this.removeTagsLocally(tag);
+    this._mediaTags = this._mediaTags.filter((t: string) => t !== tag);
+  }
+
+  async removeTagFromMedia(tag: string, media: any): Promise<void> {
+    const mediaId = media.id;
+    const mediaDocRef = doc(this.firestore, `media/${mediaId}`);
+    await updateDoc(mediaDocRef, {
+      tags: arrayRemove(tag),
+    });
+
+    const productsRef = collection(this.firestore, 'products');
+    // Query all products where the mediaId exists in the mediaIds array
+    const productQuery = query(productsRef, where('mediaIds', 'array-contains', mediaId));
+    const productSnapshots = await getDocs(productQuery);
     
-  }
-
-  async removeTagFromVideo(videoId: string, tag: string): Promise<void> {
-    const videoDocRef = doc(this.firestore, `videos/${videoId}`);
-    await updateDoc(videoDocRef, {
-      videoTags: arrayRemove(tag),
-      tag: tag,
+    productSnapshots.forEach(async (productDoc) => {
+      const productData = productDoc.data();
+      
+      // Map over mediaList to find the media item and use arrayRemove to remove the tag
+      const updatedMediaList = productData['mediaList'].map((media: any) => {
+        if (media.id === mediaId) {
+          return {
+            ...media,
+            tags: media.tags.filter((t: string) => t !== tag)
+          };
+        }
+        return media;
+      });
+  
+      // Update the product with the modified mediaList
+      const productRef = doc(this.firestore, `products/${productDoc.id}`);
+      await updateDoc(productRef, {
+        mediaList: updatedMediaList
+      });
     });
-  }
-
-  private removeTagsLocally(tag: string) {
-    this._videoTags = this.videoTags.filter((t: string) => t !== tag);
   }
 
   private setNewAccount(fbUser: User): any {
@@ -489,7 +489,7 @@ export class DbService {
       'settings': {
         'qrCode': QRCODE,
       },
-      'videoTags': ["thank you message", "how to", "reviews"]
+      'mediaTags': ["thank you message", "how to", "reviews"]
     }
   }
 }

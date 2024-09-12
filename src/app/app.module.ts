@@ -30,6 +30,8 @@ import { AuthComponent } from './pages/auth/auth.component';
 import { TagFormComponent } from './modals/tag-form/tag-form.component';
 import { JourneysComponent } from './pages/journeys/journeys.component';
 import { QRCodeComponent } from './modals/qrcode/qrcode.component';
+import { ProductComponent } from './pages/product/product.component';
+import { UploadModalComponent } from './modals/upload-modal/upload-modal.component';
 
 @NgModule({
   declarations: [
@@ -45,7 +47,9 @@ import { QRCodeComponent } from './modals/qrcode/qrcode.component';
     AuthComponent,
     TagFormComponent,
     JourneysComponent,
-    QRCodeComponent
+    QRCodeComponent,
+    ProductComponent,
+    UploadModalComponent
   ],
   imports: [
     BrowserModule,

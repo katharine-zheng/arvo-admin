@@ -5,74 +5,67 @@ import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { DbService } from '../../services/db.service';
 
 @Component({
-  selector: 'app-journey',
-  templateUrl: './journey.component.html',
-  styleUrl: './journey.component.css'
+  selector: 'app-product',
+  templateUrl: './product.component.html',
+  styleUrl: './product.component.css'
 })
-export class JourneyComponent implements OnInit {
-  public journey: any;
+export class ProductComponent {
+  public product: any;
   public displayMode: string = "";
+  public selectedTag: string = "";
   public displayedMedia: any[] = [];
   public selectedMedia: any[] = [];
-  public selectedTag: string = "";
   public availableTags: string[] = [];
-  public journeyForm: FormGroup;
-  public journeyTypes = [
-    { label: 'Pre-Purchase', value: 'prePurchase' },
-    { label: 'Post-Purchase', value: 'postPurchase' }
-  ];
+  public productForm: FormGroup;
   
-  private journeyId: string | undefined;
+  private productId: string | undefined;
   private allMedia: any[] = [];
   private filteredMedia: any[] = [];  // List of media filtered by tag
 
   constructor(private route: ActivatedRoute, private fb: FormBuilder, private db: DbService) {
-    this.journeyForm = this.fb.group({
+    this.productForm = this.fb.group({
       name: ['', Validators.required],  // Add the name field
-      type: ['prePurchase', Validators.required],
-      mediaList: [[], Validators.required],
+      mediaList: [[]],
       tagFilter: [''] 
     });
   }
 
   ngOnInit(): void {
-    this.journeyId = this.route.snapshot.paramMap.get('id') || '';
+    this.productId = this.route.snapshot.paramMap.get('id') || '';
     this.fetchMedia();
 
-    if (!this.journeyId) {
+    if (!this.productId) {
       this.setDisplayMode('all');
     }
 
-    this.db.currentJourney.subscribe(journey => {
-      if (journey) {
-        this.journey = journey;
-        this.journeyForm.patchValue({
-          name: journey.name,
-          type: journey.type,
+    this.db.currentProduct.subscribe(product => {
+      if (product) {
+        this.product = product;
+        this.productForm.patchValue({
+          name: product.name,
         });
-        this.journeyForm.controls['mediaList'].setValue(journey.mediaList);
+        this.productForm.controls['mediaList'].setValue(product.mediaList);
         this.preselectMedia();
       } else {
         this.setDisplayMode('all');
       }
     });
 
-    this.journeyForm.get('tagFilter')?.valueChanges.subscribe(tag => {
+    this.productForm.get('tagFilter')?.valueChanges.subscribe(tag => {
       this.selectedTag = tag;
-      this.filterMediaByTag();  // Filter media when the tag changes
+      this.filterMediaByTag();  // Filter the media when the tag changes
     });
   }
 
-  // Method to handle the drag-and-drop event
   drop(event: CdkDragDrop<any[]>) {
-    const mediaList = this.journeyForm.controls['mediaList'].value;
+    const mediaList = this.productForm.controls['mediaList'].value;
     moveItemInArray(mediaList, event.previousIndex, event.currentIndex);
-    this.journeyForm.controls['mediaList'].setValue(mediaList);
-    this.saveJourney();
+    this.productForm.controls['mediaList'].setValue(mediaList);
+    this.saveProduct();
   }
 
   clearFilters() {
-    this.journeyForm.controls['tagFilter'].setValue('');  // Clear tag filter
+    this.productForm.controls['tagFilter'].setValue('');  // Clear tag filter
     this.filteredMedia = [...this.allMedia];  // Reset to show all media
     this.displayedMedia = [...this.allMedia];
     this.displayMode = 'all';  // Reset display mode to 'all'
@@ -81,19 +74,20 @@ export class JourneyComponent implements OnInit {
 
   async fetchMedia() {
     this.allMedia = await this.db.getMedia(this.db.account.id);
+    this.allMedia = this.allMedia;
     this.filteredMedia = this.allMedia;
     this.displayedMedia = this.allMedia;
     this.availableTags = this.db.mediaTags;
 
-    // If journey data is already loaded and media need to be preselected
-    this.selectedMedia = this.journeyForm.controls['mediaList'].value ?? [];
+    // If product data is already loaded and media need to be preselected
+    this.selectedMedia = this.productForm.controls['mediaList'].value ?? [];
     if (this.selectedMedia && this.selectedMedia.length > 0) {
       this.setDisplayMode('selected');
       this.preselectMedia();
       const selectedMedia = this.selectedMedia;
       if (selectedMedia && selectedMedia.length > 0) {
         this.allMedia.forEach(media => {
-          // Check if this media object is already part of the journey
+          // Check if this media object is already part of the product
           media.selected = selectedMedia.some((v: any) => v.id === media.id);
         });
       }
@@ -116,6 +110,7 @@ export class JourneyComponent implements OnInit {
       this.filteredMedia = this.allMedia.filter(media => media.tags.includes(this.selectedTag));
       this.displayedMedia = this.filteredMedia;
     } else {
+      // If no tag is selected, show all media
       this.filteredMedia = this.allMedia;
     }
   }
@@ -136,14 +131,15 @@ export class JourneyComponent implements OnInit {
     }
   }
 
-  // onMediaSelect(event: any, media: any) {
-  //   const selectedMedia = this.journeyForm.controls['mediaList'].value as any[];
-  //   if (event.target.checked) {
-  //     this.journeyForm.controls['mediaList'].setValue([...selectedMedia, media]);
-  //   } else {
-  //     this.journeyForm.controls['mediaList'].setValue(selectedMedia.filter(v => v.id !== media.id));
-  //   }
-  // }
+  onMediaSelect(event: any, media: any) {
+    const selectedMedia = this.productForm.controls['mediaList'].value as any[];
+  
+    if (event.target.checked) {
+      this.productForm.controls['mediaList'].setValue([...selectedMedia, media]);
+    } else {
+      this.productForm.controls['mediaList'].setValue(selectedMedia.filter(v => v.id !== media.id));
+    }
+  }
 
   onMediaSelected(media: any) {
     const index = this.selectedMedia.findIndex(v => v.id === media.id);
@@ -153,7 +149,7 @@ export class JourneyComponent implements OnInit {
     } else {
       this.selectedMedia.push(media);
     }
-    this.journeyForm.controls['mediaList'].setValue(this.selectedMedia);
+    this.productForm.controls['mediaList'].setValue(this.selectedMedia);
   }
 
   isSelected(media: any): boolean {
@@ -164,41 +160,39 @@ export class JourneyComponent implements OnInit {
   }
 
   nameExists(name: string) {
-    if (this.journey.name === name) {
+    if (this.product.name === name) {
       return false;
     }
-    const journeys = this.db.journeys;
-    let exists = journeys.some((j: any) => j.name === name);
+    const products = this.db.products;
+    let exists = products.some((j: any) => j.name === name);
     return exists;
   }
 
-  async saveJourney() {
-    if (this.journeyForm.valid) {
-      const name = this.journeyForm.value.name;
+  async saveProduct() {
+    if (this.productForm.valid) {
+      const name = this.productForm.value.name;
       const nameExists = this.nameExists(name);
-      const mediaList = this.journeyForm.value.mediaList;
-      const journey: any = {
+      const mediaList = this.productForm.value.mediaList;
+      const product: any = {
         accountId: this.db.account.id,
         name: name,
-        type: this.journeyForm.value.type,
         mediaList: mediaList,
         mediaIds: mediaList.map((media: any) => media.id),
       };
 
       if (nameExists) {
         console.error('name exists');
-      } else if (this.journey.id) {
-        this.db.updateJourney(this.journey.id, journey).then(() => {
+      } else if (this.product.id) {
+        this.db.updateProduct(this.product.id, product).then(() => {
         }).catch(error => {
-          console.error('Error saving journey:', error);
+          console.error('Error saving product:', error);
         });
       } else {
-        this.db.createJourney(journey).then(() => {
+        this.db.createProduct(product).then(() => {
         }).catch(error => {
-          console.error('Error saving journey:', error);
+          console.error('Error saving product:', error);
         });
       }
     }
   }
-
 }

@@ -5,6 +5,7 @@ import { DbService } from '../../services/db.service';
 import { DeleteDialogComponent } from '../../modals/delete-dialog/delete-dialog.component';
 import { QRCodeService } from '../../services/qrcode.service';
 import { Router } from '@angular/router';
+import { QRCodeComponent } from '../../modals/qrcode/qrcode.component';
 
 @Component({
   selector: 'app-products',
@@ -12,11 +13,11 @@ import { Router } from '@angular/router';
   styleUrl: './products.component.css'
 })
 export class ProductsComponent {
+  public searchTerm: string = "";
   journeys: any = {};
-  displayedColumns: string[] = ['name', 'pre-purchase journey', 'post-purchase journey', 'actions'];
-  products: any[] = [];
-  filteredProducts: any[] = [];
-  // view: 'grid' | 'table' = 'grid';
+  displayedColumns: string[] = ['name', 'actions', 'qr code'];
+  public products: any[] = [];
+  public filteredProducts: any[] = [];
   view: 'grid' | 'table' = 'table';
   qrCodeElement: HTMLElement | undefined | null; // To store the reference to the QR code container
 
@@ -28,13 +29,32 @@ export class ProductsComponent {
 
   async getProducts() {
     this.products = await this.db.getProducts();
-    // this.filterProducts = this.products;
+    this.filteredProducts = this.products;
   }
 
-  filterProducts(searchTerm: string) {
-    this.filteredProducts = this.products.filter((product: any) =>
-      product.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  openProduct(product?: any) {
+    if (product) {
+      this.db.setProductData(product);
+      this.router.navigate(['/product', product.id]);
+    } else {
+      this.db.setProductData(null);
+      this.router.navigate(['/product']);
+    }
+  }
+
+  filterProducts() {
+    if (this.searchTerm) {
+      this.filteredProducts = this.products.filter((product: any) =>
+        product.name.toLowerCase().includes(this.searchTerm.toLowerCase())
+      );
+    } else {
+      this.filteredProducts = [...this.products];
+    }
+  }
+
+  clearSearch() {
+    this.searchTerm = "";
+    this.filteredProducts = [...this.products];
   }
 
   setView(view: 'grid' | 'table') {
@@ -46,16 +66,34 @@ export class ProductsComponent {
     this.router.navigate(['/products', product.id, 'journey']);
   }
 
+  openQRCodeModal(product: any) {
+    const dialogRef = this.dialog.open(QRCodeComponent, {
+      width: '350px',
+      data: {
+        qrCodeSettings: this.db.account.settings.qrCode,
+        product,
+      },
+      hasBackdrop: true,
+      disableClose: false, 
+    });
+
+    dialogRef.afterClosed().subscribe(async result => {
+      if (result) {}
+    });
+  }
+
   openProductForm() {
     const dialogRef = this.dialog.open(ProductFormComponent, {
       width: '600px',
-      data: null, // Pass data if editing
-      hasBackdrop: true, // Ensure there is a backdrop
+      data: null,
+      hasBackdrop: true,
       disableClose: false, 
     });
 
     dialogRef.afterClosed().subscribe(async result => {
       if (result) {
+        result['mediaList'] = [];
+        result['mediaIds'] = [];
         this.products.push(result);
         await this.db.createProduct(result);
       }
@@ -63,11 +101,10 @@ export class ProductsComponent {
   }
 
   editProduct(product: any) {
-    // Open the product form modal with the selected product details pre-filled
     const dialogRef = this.dialog.open(ProductFormComponent, {
       width: '600px',
       data: product,
-      hasBackdrop: true, // Ensure there is a backdrop
+      hasBackdrop: true,
       disableClose: false, 
     });
 
@@ -94,22 +131,5 @@ export class ProductsComponent {
   async deleteProduct(productId: string) {
     await this.db.deleteDocument("products", productId);
     this.products = this.products.filter(product => product.id !== productId);
-  }
-
-  generateQRCode(product: any) {
-    // this.selectedProduct = product;
-
-    // const data = `https://yourdomain.com/products/${product.id}`; // Replace with your product URL or data
-    // const logoUrl = 'https://yourdomain.com/assets/logo.png'; // Replace with your logo URL
-
-    const data = "https://stance-live-admin.web.app/login";
-    const logoUrl = "";
-    if (this.qrCodeElement) {
-      this.qrCodeElement.innerHTML = ''; // Clear existing QR code if any
-    }
-
-    this.qrCodeElement = document.getElementById('qrCodeContainer'); // Get the container where the QR code will be rendered
-
-    // this.qrCodeService.generateQRCode(data, logoUrl, this.qrCodeElement!);
   }
 }

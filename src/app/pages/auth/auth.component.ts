@@ -8,8 +8,8 @@ import { AuthService } from '../../services/auth.service';
 })
 export class AuthComponent {
 
-  email = '';
-  password = '';
+  email = "";
+  password = "";
   isLoginMode = true; // Toggle between login and registration
 
   constructor(private authService: AuthService) {}

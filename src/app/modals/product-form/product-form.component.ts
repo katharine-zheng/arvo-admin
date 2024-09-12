@@ -29,18 +29,7 @@ export class ProductFormComponent {
   onSave() {
     if (this.productForm.valid) {
       const updatedProduct = this.productForm.value;
-
-      if (this.isEditMode) {
-        // Update existing product
-        // this.productService.updateProduct(this.data.id, updatedProduct).subscribe(() => {
-          this.dialogRef.close(updatedProduct);
-        // });
-      } else {
-        // Save new product
-        // this.productService.saveProduct(updatedProduct).subscribe(() => {
-          this.dialogRef.close(updatedProduct);
-        // });
-      }
+      this.dialogRef.close(updatedProduct);
     }
   }
 

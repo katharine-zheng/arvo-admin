@@ -4,6 +4,7 @@ import { AuthService } from '../../services/auth.service';
 import { StorageService } from '../../services/storage.service';
 import { MatDialog } from '@angular/material/dialog';
 import { TagFormComponent } from '../../modals/tag-form/tag-form.component';
+import { UploadModalComponent } from '../../modals/upload-modal/upload-modal.component';
 
 @Component({
   selector: 'app-media',
@@ -11,93 +12,78 @@ import { TagFormComponent } from '../../modals/tag-form/tag-form.component';
   styleUrl: './media.component.css'
 })
 export class MediaComponent implements OnInit {
-  public videos: any[] = [];
-  public filteredVideos: any[] = [];
+  public allMedia: any[] = [];
+  public filteredMedia: any[] = [];
   public isDeleting: boolean = false;
-  public selectedVideos: Array<any> = [];
-  public unassignedVideos: any[] = [];
-  masterToggle: boolean = false;  // State of the master toggle
-
+  public selectedMedia: Array<any> = [];
+  public unassignedMedia: any[] = [];
+  public products: any[] = [];
   public journeys: any[] = [];
   public tags: string[] = [];
-  public selectedJourneyId: string = "";
+  public selectedProductId: string = "";
   public selectedTag: string = "";
-  public searchTerm: string = '';  // Search input value
+  public searchTerm: string = "";
+  public productId: string | undefined;
+  private masterToggle: boolean = false;  // State of the master toggle
   constructor(private changeRef: ChangeDetectorRef, private auth: AuthService, private db: DbService, private storage: StorageService, private dialog: MatDialog) {}
 
   ngOnInit(): void {
     this.loadTags();
-    this.getVideos();
+    this.getMedia();
     this.fetchJourneys();
+    this.fetchProducts();
   }
 
   async fetchJourneys() {
     this.journeys = await this.db.getJourneys();
   }
 
-  filterVideosWithoutTag(): void {
-    this.filteredVideos = this.videos.filter(video => !video.tag || video.tag.trim() === '');
+  async fetchProducts() {
+    this.products = await this.db.getProducts();
   }
 
-  filterVideos() {
+  filterMediaWithoutTags(): void {
+    this.filteredMedia = this.allMedia.filter(media => !media.tags || media.tags.length === 0);
+  }
+
+  filterMedia() {
     if (this.searchTerm) {
-      this.filteredVideos = this.videos.filter(video =>
-        video.originalName.toLowerCase().includes(this.searchTerm.toLowerCase())
+      this.filteredMedia = this.allMedia.filter(media =>
+        media.originalName.toLowerCase().includes(this.searchTerm.toLowerCase())
       );
     } else {
-      // If there's no search term, show all videos
-      this.filteredVideos = [...this.videos];
+      this.filteredMedia = [...this.allMedia];
     }
   }
 
-  filterVideosByTag(tag: string) {
+  clearSearch() {
+    this.searchTerm = "";
+    this.filteredMedia = [...this.allMedia];
+  }
+
+  filterMediaByTag(tag: string) {
     this.selectedTag = tag;
     if (this.selectedTag && this.selectedTag !== '') {
-      this.filteredVideos = this.videos.filter(video => video.tag === this.selectedTag);
+      this.filteredMedia = this.allMedia.filter(media => media.tags.includes(this.selectedTag));
     } else {
-      // If no tag is selected, show all videos
-      this.filteredVideos = this.videos;
+      this.filteredMedia = this.allMedia;
     }
   }
 
   async loadTags() {
     try {
-      this.tags = this.db.videoTags;
+      this.tags = this.db.mediaTags;
     } catch (error) {
       console.error('Error fetching tags:', error);
     }
   }
 
-  async addTag(tag: string) {
-    await this.db.addTagToAccount(tag);
-  }
-
-  async assignTag(tag: string) {
-    if (tag) {
-      this.selectedTag = tag
-      try {
-        this.selectedVideos.forEach(async (video) => {
-          video.tag = tag;
-          video.tags.push(tag);
-          await this.db.addTagToVideo(tag, video.id);
-        });
-        this.selectedVideos = [];
-        this.unassignedVideos = this.videos.filter(video => !video.tag || video.tag.trim() === '');
-        this.changeRef.detectChanges();
-      } catch (error) {
-        console.error('Error assigning tag:', error);
-      }
-    } else {
-      alert('Please select or enter a tag.');
-    }
-  }
-
-  async getVideos() {
+  async getMedia() {
     const accountId = this.auth.uid;
     if (accountId) {
-      this.videos = await this.db.getVideos(accountId);
-      this.filteredVideos = this.videos;
-      this.unassignedVideos = this.videos.filter(video => !video.tag || video.tag.trim() === '');
+      this.allMedia = await this.db.getMedia(accountId);
+      this.filteredMedia = this.allMedia;
+      this.unassignedMedia = this.allMedia.filter(media => !media.tags || media.tags.length === 0);
     }
   }
 
@@ -108,31 +94,87 @@ export class MediaComponent implements OnInit {
     });
 
     // After the modal is closed, retrieve the new tag and add it to the list
-    dialogRef.afterClosed().subscribe((newTag: string) => {
+    dialogRef.afterClosed().subscribe(async (newTag: string) => {
       if (newTag) {
-        this.addNewTag(newTag);
+        await this.saveTag(newTag);
       }
-      this.tags = this.db.videoTags;
+      this.tags = this.db.mediaTags;
     });
   }
 
-  // Add a new tag to the list and assign it to the video
-  async addNewTag(newTag: string): Promise<void> {
-    try {
-      if (!this.tags.includes(newTag)) {
-        await this.db.addTagToAccount(newTag);
-        this.tags.push(newTag); // Add the new tag to the local array
-      } else {
-        alert('Tag already exists');
+  async addTagToMedia(tag: string) {
+    if (tag) {
+      this.selectedTag = tag;
+      try {
+        this.selectedMedia.forEach(async (media) => {
+          await this.db.addTagToMedia(tag, media);
+          if (!media.tags.includes(tag)) {
+            media.tags.push(tag);
+          }
+        });
+        this.selectedTag = "";
+        this.selectedMedia = [];
+        this.unassignedMedia = this.allMedia.filter(media => !media.tags || media.tags.length === 0);
+        this.changeRef.detectChanges();
+      } catch (error) {
+        console.error('Error assigning tag:', error);
       }
-    } catch (error) {
-      console.error('Error assigning category:', error);
+    } else {
+      alert('Please select or enter a tag.');
     }
   }
 
-  updateVideos(videos: any[]) {
-    // this.videos.push(video);
-    this.videos = this.videos.concat(videos);
+  removeTagFromMedia(tag: string) {
+    if (tag && this.selectedMedia.length === 1) {
+      this.selectedTag = tag;
+      try {
+        this.selectedMedia.forEach(async (media) => {
+          await this.db.removeTagFromMedia(tag, media);
+          media.tags = media.tags.filter((t: string) => t !== tag);
+        });
+        this.selectedTag = "";
+        this.selectedMedia = [];
+        this.unassignedMedia = this.allMedia.filter(media => !media.tags || media.tags.length === 0);
+        this.changeRef.detectChanges();
+      } catch (error) {
+        console.error('Error assigning tag:', error);
+      }
+    } else {
+      alert('Please select or enter a tag.');
+    }
+  }
+
+  async saveTag(newTag: string): Promise<void> {
+    if (!this.tags.includes(newTag)) {
+      try {
+        await this.db.addTagToAccount(newTag);
+        this.tags.push(newTag);
+      } catch (error) {
+        console.error('Error assigning category:', error);
+      }
+    } else {
+      alert('Tag already exists');
+    }
+  }
+
+  openUploadModal() {
+    const dialogRef = this.dialog.open(UploadModalComponent, {
+      width: '600px',
+      data: null,
+      hasBackdrop: true,
+      disableClose: false, 
+    });
+
+    dialogRef.afterClosed().subscribe(async result => {
+      if (result) {
+        this.concatMedia(result);
+      }
+    });
+  }
+
+  concatMedia(medias: any[]) {
+    this.allMedia = this.allMedia.concat(medias);
+    this.filteredMedia = this.allMedia;
     this.changeRef.detectChanges();
   }
 
@@ -140,90 +182,110 @@ export class MediaComponent implements OnInit {
   toggleAll(): void {
     this.masterToggle = !this.masterToggle;
     if (this.masterToggle) {
-      this.selectedVideos = this.selectedVideos.concat(this.videos); // Select all
+      this.selectedMedia = this.selectedMedia.concat(this.filterMedia); // Select all
     } else {
-      this.selectedVideos = [];
+      this.selectedMedia = [];
     }
   }
 
-  toggleSelection(video: any, event: any): void {
-    if (event.target.checked) {
-      this.selectedVideos.push(video);
+  // toggleSelection(media: any, event: any): void {
+  //   if (event.target.checked) {
+  //     this.selectedMedia.push(media);
+  //   } else {
+  //     this.selectedMedia = this.selectedMedia.filter(v => v.id !== media.id);
+  //   }
+  // }
+
+  onMediaSelected(media: any) {
+    const selectedMedia = this.selectedMedia;
+    const index = selectedMedia.findIndex(v => v.id === media.id);
+
+    if (index > -1) {
+      this.selectedMedia.splice(index, 1);
     } else {
-      this.selectedVideos = this.selectedVideos.filter(v => v.id !== video.id);
+      this.selectedMedia.push(media);
     }
   }
 
-  // Add selected videos to the journey document
-  async addSelectedVideosToJourney() {
-    if (!this.selectedJourneyId) {
+  isSelected(media: any): boolean {
+    if (this.selectedMedia && this.selectedMedia.length > 0) {
+      return this.selectedMedia.some(v => v.id === media.id);
+    }
+    return false;
+  }
+
+  // Add selected media to the journey document
+  async addMediaToProduct() {
+    if (!this.selectedProductId) {
       console.error("No journey selected");
       return;
     }
   
-    if (this.selectedVideos.length === 0) {
-      console.error("No videos selected");
+    if (this.selectedMedia.length === 0) {
+      console.error("No media selected");
       return;
     }
 
-    await this.db.addVideosToProduct(this.selectedJourneyId, this.selectedVideos);
+    this.selectedMedia = this.selectedMedia.filter(media => media.tags && media.tags.length > 0);
+    await this.db.addMediaToProduct(this.selectedProductId, this.selectedMedia);
   }
 
-  deleteVideo(video: any): void {
-    const videoId = video.id;
-    const videoUrl = video.url;
-    video.isDeleting = true;
-    this.storage.deleteVideo(videoId, videoUrl).subscribe(
+  deleteMedia(media: any): void {
+    const mediaId = media.id;
+    const mediaUrl = media.url;
+    media.isDeleting = true;
+    this.storage.deleteMedia(mediaId, mediaUrl).subscribe(
       () => {
-        // Remove the video from the list after deletion
-        this.videos = this.videos.filter(video => video.id !== videoId);
-        this.unassignedVideos = this.videos.filter(video => !video.tag || video.tag.trim() === '');
+        this.allMedia = this.allMedia.filter(media => media.id !== mediaId);
+        this.filteredMedia = this.filteredMedia.filter(media => media.id !== mediaId);
+        this.unassignedMedia = this.allMedia.filter(media => !media.tags || media.tags.length === 0);
         this.changeRef.detectChanges();
-        video.isDeleting = false;
+        media.isDeleting = false;
       },
       (error) => {
-        console.error('Error deleting video:', error);
+        console.error('Error deleting media:', error);
         this.isDeleting = false;
       }
     );
   }
 
-  // deleteVideo(videoId: string, videoUrl: string): void {
+  // deleteMedia(mediaId: string, mediaUrl: string): void {
   //   this.isDeleting = true;
-  //   this.storage.deleteVideo(videoId, videoUrl).subscribe(
+  //   this.storage.deleteMedia(mediaId, mediaUrl).subscribe(
   //     () => {
-  //       // Remove the video from the list after deletion
-  //       this.videos = this.videos.filter(video => video.id !== videoId);
+  //       // Remove the media from the list after deletion
+  //       this.allMedia = this.allMedia.filter(media => media.id !== mediaId);
   //       this.isDeleting = false;
-  //       alert('Video deleted successfully!');
+  //       alert('Media deleted successfully!');
   //     },
   //     (error) => {
-  //       console.error('Error deleting video:', error);
+  //       console.error('Error deleting media:', error);
   //       this.isDeleting = false;
   //     }
   //   );
   // }
 
-  // Method to bulk delete videos
-  deleteSelectedVideos(): void {
-    if (this.selectedVideos.length === 0) return;
+  // Method to bulk delete media
+  deleteSelectedMedia(): void {
+    if (this.selectedMedia.length === 0) return;
     this.isDeleting = true;
 
-    // Iterate over each selected video and delete it
-    this.selectedVideos.forEach((video) => {
-      this.storage.deleteVideo(video.id, video.url).subscribe(
+    // Iterate over each selected media and delete it
+    this.selectedMedia.forEach((media) => {
+      this.storage.deleteMedia(media.id, media.url).subscribe(
         () => {
-          // Remove the deleted video from the videos list
-          this.videos = this.videos.filter(v => v.id !== video.id);
-          // After deleting all, reset the selectedVideos array
-          if (this.selectedVideos.length === 1) {
-            this.selectedVideos = [];
+          // Remove the deleted media from the media list
+          this.allMedia = this.allMedia.filter(v => v.id !== media.id);
+          // After deleting all, reset the selectedMedia array
+          if (this.selectedMedia.length === 1) {
+            this.selectedMedia = [];
             this.isDeleting = false;
-            alert('Selected videos deleted successfully!');
+            this.filteredMedia = this.allMedia;
+            alert('Selected media deleted successfully!');
           }
         },
         (error) => {
-          console.error('Error deleting video:', error);
+          console.error('Error deleting media:', error);
           this.isDeleting = false;
         }
       );

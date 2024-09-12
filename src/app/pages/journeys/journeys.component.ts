@@ -16,7 +16,6 @@ export class JourneysComponent {
   displayedColumns: string[] = ['name', 'type', 'actions', 'qr code'];
   filteredJourneys: any[] = [];
   view: 'grid' | 'table' = 'table';
-  // qrCodeElement: HTMLElement | undefined | null; // To store the reference to the QR code container
 
   constructor(private router: Router, private dialog: MatDialog, private qrCodeService: QRCodeService, private db: DbService) {}
 
@@ -26,7 +25,6 @@ export class JourneysComponent {
 
   async getJourneys() {
     this.journeys = await this.db.getJourneys();
-    // this.filteredJourneys = this.journeys;
   }
 
   filterJourneys(searchTerm: string) {
@@ -49,11 +47,27 @@ export class JourneysComponent {
     }
   }
 
+  openQRCodeModal(journey: any) {
+    const dialogRef = this.dialog.open(QRCodeComponent, {
+      width: '350px',
+      data: {
+        qrCodeSettings: this.db.account.settings.qrCode,
+        journey,
+      },
+      hasBackdrop: true,
+      disableClose: false, 
+    });
+
+    dialogRef.afterClosed().subscribe(async result => {
+      if (result) {}
+    });
+  }
+
   // openJourneyForm() {
   //   const dialogRef = this.dialog.open(JourneyFormComponent, {
   //     width: '600px',
-  //     data: null, // Pass data if editing
-  //     hasBackdrop: true, // Ensure there is a backdrop
+  //     data: null,
+  //     hasBackdrop: true,
   //     disableClose: false, 
   //   });
 
@@ -69,7 +83,7 @@ export class JourneysComponent {
   //   const dialogRef = this.dialog.open(JourneyFormComponent, {
   //     width: '600px',
   //     data: journey,
-  //     hasBackdrop: true, // Ensure there is a backdrop
+  //     hasBackdrop: true,
   //     disableClose: false, 
   //   });
 
@@ -96,21 +110,5 @@ export class JourneysComponent {
   async deleteJourney(journeyId: string) {
     await this.db.deleteDocument("journeys", journeyId);
     this.journeys = this.journeys.filter((journey: { id: string; }) => journey.id !== journeyId);
-  }
-
-  openQRCodeModal(journey: any) {
-    const dialogRef = this.dialog.open(QRCodeComponent, {
-      width: '350px',
-      data: {
-        qrCodeSettings: this.db.account.settings.qrCode,
-        journey
-      },
-      hasBackdrop: true,
-      disableClose: false, 
-    });
-
-    dialogRef.afterClosed().subscribe(async result => {
-      if (result) {}
-    });
   }
 }

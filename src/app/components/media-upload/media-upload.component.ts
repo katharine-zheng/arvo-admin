@@ -9,16 +9,16 @@ import { AuthService } from '../../services/auth.service';
 })
 export class MediaUploadComponent {
 
-  selectedFile: File | null = null;
-  selectedFiles: File[] = [];
-  uploadingVideos: any[] = [];
-  uploadProgress: number = 0;
-  downloadURL: string | null = null;
-  isUploading: boolean = false;
-  isDragging: boolean = false;  // State for drag-over effect
+  public selectedFile: File | null = null;
+  public selectedFiles: File[] = [];
+  public uploadingMedia: any[] = [];
+  public uploadProgress: number = 0;
+  public downloadURL: string | null = null;
+  public isUploading: boolean = false;
+  public isDragging: boolean = false;  // State for drag-over effect
 
   @Input() view: string = ""; 
-  @Output() onVideoUploaded: EventEmitter<any> = new EventEmitter<any>();
+  @Output() onMediaUploaded: EventEmitter<any> = new EventEmitter<any>();
 
   constructor(private changeRef: ChangeDetectorRef, private storage: StorageService, private auth: AuthService) {}
 
@@ -47,7 +47,7 @@ export class MediaUploadComponent {
 
   addFiles(files: File[]): void {
     this.selectedFiles = this.selectedFiles.concat(files);
-    this.uploadingVideos = this.selectedFiles.map((file) => ({ file, uploadProgress: 0 }));
+    this.uploadingMedia = this.selectedFiles.map((file) => ({ file, uploadProgress: 0 }));
     this.uploadFiles();
   }
 
@@ -57,29 +57,29 @@ export class MediaUploadComponent {
 
   onFilesSelected(event: any, autoUpload: boolean): void {
     this.selectedFiles = Array.from(event.target.files); // Collect selected files
-    this.uploadingVideos = this.selectedFiles.map((file) => ({ file, uploadProgress: 0 }));
+    this.uploadingMedia = this.selectedFiles.map((file) => ({ file, uploadProgress: 0 }));
 
     if (autoUpload) {
       this.uploadFiles();
     }
   }
 
-  captureThumbnail(file: File): Promise<string> {
+  captureVideoThumbnail(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
-      const video = document.createElement('video');
-      video.src = URL.createObjectURL(file);
-      video.crossOrigin = 'anonymous';
-      video.currentTime = 5; // Capture frame at 5 seconds or wherever you prefer
+      const media = document.createElement('video');
+      media.src = URL.createObjectURL(file);
+      media.crossOrigin = 'anonymous';
+      media.currentTime = 5; // Capture frame at 5 seconds or wherever you prefer
   
-      // When video is loaded and ready
-      video.onloadeddata = () => {
+      // When media is loaded and ready
+      media.onloadeddata = () => {
         const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        canvas.width = media.videoWidth;
+        canvas.height = media.videoHeight;
   
         const context = canvas.getContext('2d');
         if (context) {
-          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          context.drawImage(media, 0, 0, canvas.width, canvas.height);
   
           // Convert canvas to a data URL (base64 image)
           const thumbnailUrl = canvas.toDataURL('image/jpeg');
@@ -89,27 +89,27 @@ export class MediaUploadComponent {
         }
       };
   
-      video.onerror = (error) => {
+      media.onerror = (error) => {
         reject('Error loading video: ' + error);
       };
     });
   }
 
   uploadFiles(): void {
-    const newVideos: any[] = [];
-    if (this.uploadingVideos && this.auth.uid) {
+    const newMedia: any[] = [];
+    if (this.uploadingMedia && this.auth.uid) {
       this.isUploading = true;
-      this.uploadingVideos.forEach(async (video, index) => {
-        const thumbnailUrl = await this.captureThumbnail(video.file);
-        this.storage.uploadVideo(video.file, thumbnailUrl, this.auth.uid!).subscribe(
+      this.uploadingMedia.forEach(async (media, index) => {
+        const thumbnailUrl = await this.captureVideoThumbnail(media.file);
+        this.storage.uploadMedia(media.file, thumbnailUrl, this.auth.uid!).subscribe(
         async (event) => {
-          this.uploadingVideos[index].uploadProgress = event.progress; // Update the progress
+          this.uploadingMedia[index].uploadProgress = event.progress; // Update the progress
           if (event.downloadURL) {
-            this.uploadingVideos[index].downloadURL = event.downloadURL; // Update the progress
-            newVideos.push(event.video);
-            // Capture the thumbnail after video upload is complete
+            this.uploadingMedia[index].downloadURL = event.downloadURL; // Update the progress
+            newMedia.push(event.media);
+            // Capture the thumbnail after media upload is complete
             // Upload the thumbnail
-            // await this.storage.uploadThumbnail(thumbnailUrl, video.file.name, event.id);
+            // await this.storage.uploadThumbnail(thumbnailUrl, media.file.name, event.id);
           }
           this.changeRef.detectChanges();
         },
@@ -118,13 +118,11 @@ export class MediaUploadComponent {
           this.isUploading = false;
         }
         ,() => {
-          if (this.uploadingVideos.every(v => v.uploadProgress === 100)) {
+          if (this.uploadingMedia.every(v => v.uploadProgress === 100)) {
             this.isUploading = false;
-            this.uploadingVideos = [];
+            this.uploadingMedia = [];
             this.selectedFiles = [];
-
-            // setTimeout(() => this.onVideoUploaded.emit(), 5000);
-            this.onVideoUploaded.emit(newVideos);
+            this.onMediaUploaded.emit(newMedia);
           }
         }
         );
@@ -135,15 +133,15 @@ export class MediaUploadComponent {
   async uploadFile(): Promise<void> {
     if (this.selectedFile && this.auth.uid) {
       this.isUploading = true;
-      const thumbnailUrl = await this.captureThumbnail(this.selectedFile);
-      this.storage.uploadVideo(this.selectedFile, thumbnailUrl, this.auth.uid).subscribe(
+      const thumbnailUrl = await this.captureVideoThumbnail(this.selectedFile);
+      this.storage.uploadMedia(this.selectedFile, thumbnailUrl, this.auth.uid).subscribe(
         (event) => {
           this.uploadProgress = event.progress;
           if (event.downloadURL) {
             this.downloadURL = event.downloadURL;
             this.isUploading = false;
             this.selectedFile = null;
-            this.onVideoUploaded.emit([event.video]);
+            this.onMediaUploaded.emit([event.media]);
           }
           this.changeRef.detectChanges();
         },

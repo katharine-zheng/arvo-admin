@@ -1,53 +1,38 @@
 <div class="video-upload-container">
-  <ng-container *ngIf="view === 'grid'">
-    <ng-container *ngIf="!isUploading">
-      <h2>Upload Video</h2>
-      <!-- Drag-and-drop area -->
-      <div
-      class="drag-drop-zone"
-      (dragover)="onDragOver($event)"
-      (dragleave)="onDragLeave($event)"
-      (drop)="onDrop($event)"
-      [class.dragging]="isDragging">
-        <p>Drag & Drop your videos here, or</p>
-        <button mat-raised-button color="primary" (click)="fileInput.click()">Browse</button>
-        <input
-          type="file"
-          #fileInput
-          (change)="onFilesSelected($event, true)"
-          accept="video/*"
-          multiple
-          hidden
-        />
-      </div>
-    </ng-container>
-
-    <div *ngFor="let video of uploadingVideos">
-      <p>{{ video.file.name }}</p>
-      <mat-progress-bar mode="determinate" [value]="video.uploadProgress"></mat-progress-bar>
+  <ng-container *ngIf="!isUploading">
+    <h2>Upload Video</h2>
+    <!-- Drag-and-drop area -->
+    <div
+    class="drag-drop-zone"
+    (dragover)="onDragOver($event)"
+    (dragleave)="onDragLeave($event)"
+    (drop)="onDrop($event)"
+    [class.dragging]="isDragging">
+      <p>Drag and drop your videos here</p>
+      <button mat-raised-button color="primary" (click)="fileInput.click()">or click to browse</button>
+      <input type="file" #fileInput (change)="onFilesSelected($event, true)"
+        accept="video/*" multiple hidden />
     </div>
   </ng-container>
 
-  <ng-container *ngIf="view === 'button'">
-    <ng-container *ngIf="isUploading">
-      <mat-progress-bar mode="determinate" [value]="uploadProgress"></mat-progress-bar>
-    </ng-container>
-    
-    <ng-container *ngIf="!isUploading">
-      <input type="file" (change)="onFilesSelected($event, true)" accept="video/*" multiple/>
+  <div *ngFor="let media of uploadingMedia">
+    <p>{{ media.file.name }}</p>
+    <mat-progress-bar mode="determinate" [value]="media.uploadProgress"></mat-progress-bar>
+  </div>
 
-      <button mat-raised-button color="primary" (click)="uploadFile()" [disabled]="!selectedFile || isUploading">
-        Upload Video
-      </button>
-
-      <button mat-raised-button color="primary" (click)="uploadFiles()" [disabled]="!selectedFiles || isUploading">
-        Upload Videos
-      </button>
-      
-      <div *ngIf="downloadURL">
-        <h3>Video Uploaded Successfully!</h3>
-        <a [href]="downloadURL" target="_blank">View Video</a>
-      </div>
-    </ng-container>
+  <!-- <ng-container *ngIf="isUploading">
+    <mat-progress-bar mode="determinate" [value]="uploadProgress"></mat-progress-bar>
   </ng-container>
+  
+  <ng-container *ngIf="!isUploading">
+    <input type="file" (change)="onFilesSelected($event, true)" accept="video/*" multiple/>
+
+    <button mat-raised-button color="primary" (click)="uploadFile()" [disabled]="!selectedFile || isUploading">Upload</button>
+    <button mat-raised-button color="primary" (click)="uploadFiles()" [disabled]="!selectedFiles || isUploading">Upload</button>
+    
+    <div *ngIf="downloadURL">
+      <h3>Success!</h3>
+      <a [href]="downloadURL" target="_blank">View Video</a>
+    </div>
+  </ng-container> -->
 </div>
