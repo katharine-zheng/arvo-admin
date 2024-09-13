@@ -4,7 +4,7 @@
     <button (click)="toggleAll()">Select all</button>
   </ng-container>
   <ng-container *ngIf="selectedMedia && selectedMedia.length > 0">
-    <button (click)="deleteSelectedMedia()">Delete video(s)</button>
+    <button (click)="openDeleteModal()">Delete video(s)</button>
 
     <ng-container *ngIf="products && products.length > 0">
       <div class="product-select">
@@ -82,7 +82,7 @@
               <button>Tag: <span *ngFor="let tag of media.tags">{{tag}}, </span></button>
             </ng-container>
           </div>
-          <button mat-raised-button color="warn" (click)="deleteMedia(media)" [disabled]="isDeleting">
+          <button mat-raised-button color="warn" (click)="openDeleteModal(media)" [disabled]="isDeleting">
             {{ media.isDeleting ? 'Deleting...' : 'Delete' }}
           </button>
         </div>

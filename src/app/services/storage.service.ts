@@ -68,7 +68,9 @@ export class StorageService {
           observer.next(); // Notify that the media was successfully deleted
           observer.complete();
         })
-        .catch((error) => {
+        .catch(async (error) => {
+          // just in case it still exists in the collection
+          await this.db.deleteMedia(mediaId);
           console.error('Error deleting media:', error);
           observer.error(error); // Emit error if deletion fails
         });

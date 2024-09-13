@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { User } from '@angular/fire/auth';
-import { Firestore, QueryConstraint, addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from '@angular/fire/firestore';
+import { Firestore, QueryConstraint, addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from '@angular/fire/firestore';
 import { BehaviorSubject } from 'rxjs';
 import { QRCODE } from '../constants/qrcode';
 
@@ -146,13 +146,19 @@ export class DbService {
 
   async getProducts() {
     let list: any[] = [];
-    const q = query(collection(this.firestore, "products"),
-      where("accountId", "==", this._account.id));
-    const querySnapshot = await getDocs(q);
-    querySnapshot.forEach((doc) => {
-      list.push({id: doc.id, ...doc.data()})
-    });
-    this._products = list;
+    if (this._account && this._account.id) {
+      try {
+        const q = query(collection(this.firestore, "products"),
+          where("accountId", "==", this._account.id));
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((doc) => {
+          list.push({id: doc.id, ...doc.data()})
+        });
+        this._products = list;
+      } catch (error) {
+
+      }
+    }
     return list;
   }
 
@@ -191,13 +197,18 @@ export class DbService {
 
   async getJourneys() {
     let list: any[] = [];
-    const q = query(collection(this.firestore, "journeys"),
-      where("accountId", "==", this._account.id));
-    const querySnapshot = await getDocs(q);
-    querySnapshot.forEach((doc) => {
-      list.push({id: doc.id, ...doc.data()})
-    });
-    this._journeys = list;
+    if (this._account && this._account.id) {
+      try {
+        const q = query(collection(this.firestore, "journeys"),
+          where("accountId", "==", this._account.id));
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((doc) => {
+          list.push({id: doc.id, ...doc.data()})
+        });
+        this._journeys = list;
+      } catch (error) {
+      }
+    }
     return list;
   }
 
@@ -349,19 +360,19 @@ export class DbService {
     const productQuery = query(productsRef, where('mediaIds', 'array-contains', mediaId));
     const productSnapshots = await getDocs(productQuery);
 
-    productSnapshots.forEach(async (productDoc) => {
-      const journeyData = productDoc.data();
-
-      const mediaList = journeyData['mediaList'].filter((media: any) => media.id !== mediaId);
-      const mediaIds = journeyData['mediaIds'].filter((id: string) => id !== mediaId);
-
-      // Update the journey document with the modified media and mediaIds arrays
-      const journeyRef = doc(this.firestore, `products/${productDoc.id}`);
-      await updateDoc(journeyRef, {
+    const batch = writeBatch(this.firestore); // Use a batch for atomic updates
+    productSnapshots.forEach((productDoc) => {
+      const productData = productDoc.data();
+      const mediaList = productData['mediaList'].filter((media: any) => media.id !== mediaId);
+      const mediaIds = productData['mediaIds'].filter((id: string) => id !== mediaId);
+      const productRef = doc(this.firestore, `products/${productDoc.id}`);
+      batch.update(productRef, {
         mediaList,
         mediaIds
       });
     });
+  
+    await batch.commit();
   }
 
   saveMediaThumbnail(mediaId: string, thumbnailURL: string): Promise<void> {

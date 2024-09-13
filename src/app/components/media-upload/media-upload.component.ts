@@ -103,15 +103,17 @@ export class MediaUploadComponent {
         const thumbnailUrl = await this.captureVideoThumbnail(media.file);
         this.storage.uploadMedia(media.file, thumbnailUrl, this.auth.uid!).subscribe(
         async (event) => {
-          this.uploadingMedia[index].uploadProgress = event.progress; // Update the progress
-          if (event.downloadURL) {
-            this.uploadingMedia[index].downloadURL = event.downloadURL; // Update the progress
-            newMedia.push(event.media);
-            // Capture the thumbnail after media upload is complete
-            // Upload the thumbnail
-            // await this.storage.uploadThumbnail(thumbnailUrl, media.file.name, event.id);
+          if (this.uploadingMedia[index]) {
+            this.uploadingMedia[index].uploadProgress = event.progress; // Update the progress
+            if (event.downloadURL) {
+              this.uploadingMedia[index].downloadURL = event.downloadURL; // Update the progress
+              newMedia.push(event.media);
+              // Capture the thumbnail after media upload is complete
+              // Upload the thumbnail
+              // await this.storage.uploadThumbnail(thumbnailUrl, media.file.name, event.id);
+            }
+            this.changeRef.detectChanges();
           }
-          this.changeRef.detectChanges();
         },
         (error) => {
           console.error('Error uploading file:', error);

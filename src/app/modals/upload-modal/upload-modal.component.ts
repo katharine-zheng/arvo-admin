@@ -11,6 +11,10 @@ export class UploadModalComponent {
     public dialogRef: MatDialogRef<UploadModalComponent>,
     @Inject(MAT_DIALOG_DATA) public data: any,
   ) {}
+
+  close() {
+    this.dialogRef.close();
+  }
   
   done(event: any) {
     this.dialogRef.close(event);

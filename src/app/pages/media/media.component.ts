@@ -5,6 +5,7 @@ import { StorageService } from '../../services/storage.service';
 import { MatDialog } from '@angular/material/dialog';
 import { TagFormComponent } from '../../modals/tag-form/tag-form.component';
 import { UploadModalComponent } from '../../modals/upload-modal/upload-modal.component';
+import { DeleteDialogComponent } from '../../modals/delete-dialog/delete-dialog.component';
 
 @Component({
   selector: 'app-media',
@@ -162,7 +163,7 @@ export class MediaComponent implements OnInit {
       width: '600px',
       data: null,
       hasBackdrop: true,
-      disableClose: false, 
+      disableClose: true, 
     });
 
     dialogRef.afterClosed().subscribe(async result => {
@@ -217,7 +218,7 @@ export class MediaComponent implements OnInit {
   // Add selected media to the journey document
   async addMediaToProduct() {
     if (!this.selectedProductId) {
-      console.error("No journey selected");
+      console.error("No product selected");
       return;
     }
   
@@ -226,8 +227,38 @@ export class MediaComponent implements OnInit {
       return;
     }
 
-    this.selectedMedia = this.selectedMedia.filter(media => media.tags && media.tags.length > 0);
+    // this.selectedMedia = this.selectedMedia.filter(media => media.tags && media.tags.length > 0);
     await this.db.addMediaToProduct(this.selectedProductId, this.selectedMedia);
+  }
+
+  openDeleteModal(media?: any) {
+    let data;
+    if (media) {
+      data = { 
+        media,
+        name: media.name,
+      };
+    } else {
+      data = { 
+        list: this.selectedMedia,
+        name: `the selected ${this.selectedMedia.length} video(s)`,
+      }
+    }
+
+    const dialogRef = this.dialog.open(DeleteDialogComponent, {
+      width: '400px',
+      data: data
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        if (media && this.selectedMedia.length === 1) {
+          this.deleteMedia(media);
+        } else {
+          this.deleteSelectedMedia();
+        }
+      }
+    });
   }
 
   deleteMedia(media: any): void {
@@ -271,13 +302,11 @@ export class MediaComponent implements OnInit {
     this.isDeleting = true;
 
     // Iterate over each selected media and delete it
-    this.selectedMedia.forEach((media) => {
+    this.selectedMedia.forEach((media, index) => {
       this.storage.deleteMedia(media.id, media.url).subscribe(
-        () => {
-          // Remove the deleted media from the media list
+        async () => {
           this.allMedia = this.allMedia.filter(v => v.id !== media.id);
-          // After deleting all, reset the selectedMedia array
-          if (this.selectedMedia.length === 1) {
+            if (index === this.selectedMedia.length - 1) {
             this.selectedMedia = [];
             this.isDeleting = false;
             this.filteredMedia = this.allMedia;

@@ -16,8 +16,10 @@
   </ng-container>
 
   <div *ngFor="let media of uploadingMedia">
-    <p>{{ media.file.name }}</p>
-    <mat-progress-bar mode="determinate" [value]="media.uploadProgress"></mat-progress-bar>
+    <ng-container *ngIf="media">
+      <p>{{ media.file.name }}</p>
+      <mat-progress-bar mode="determinate" [value]="media.uploadProgress"></mat-progress-bar>
+    </ng-container>
   </div>
 
   <!-- <ng-container *ngIf="isUploading">
