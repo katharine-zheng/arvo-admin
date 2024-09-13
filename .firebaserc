@@ -1,12 +1,25 @@
 {
   "projects": {
-    "default": "arvo-prod"
+    "default": "arvo-prod",
+    "prod": "arvo-prod",
+    "staging": "arvo-staging",
+    "dev": "arvo-staging"
   },
   "targets": {
     "arvo-prod": {
       "hosting": {
         "arvo-admin": [
           "arvo-prod"
+        ]
+      }
+    },
+    "arvo-staging": {
+      "hosting": {
+        "arvo-app": [
+          "arvo-staging"
+        ],
+        "arvo-admin": [
+          "arvo-admin-staging"
         ]
       }
     }
