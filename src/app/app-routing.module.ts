@@ -9,9 +9,11 @@ import { authGuard } from './guards/auth.guard';
 import { AuthComponent } from './pages/auth/auth.component';
 import { JourneysComponent } from './pages/journeys/journeys.component';
 import { ProductComponent } from './pages/product/product.component';
+import { ShopifyComponent } from './pages/shopify/shopify.component';
 
 const routes: Routes = [
   { path: 'auth', component: AuthComponent },
+  { path: 'shopify', component: ShopifyComponent },
   { path: 'dashboard', component: DashboardComponent, canActivate: [authGuard] },
   { path: 'media', component: MediaComponent, canActivate: [authGuard] },
   { path: 'media/product/:id', component: MediaComponent, canActivate: [authGuard] },
@@ -24,7 +26,7 @@ const routes: Routes = [
   { path: 'journey/:id', component: JourneyComponent, canActivate: [authGuard]},
   { path: 'settings', component: SettingsComponent, canActivate: [authGuard] },
   { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
-  { path: '', redirectTo: '/auth', pathMatch: 'full' },
+  { path: '**', redirectTo: '/auth', pathMatch: 'full' },
 ];
 
 @NgModule({

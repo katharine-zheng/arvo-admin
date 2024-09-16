@@ -13,6 +13,7 @@ import { MatFormFieldModule } from '@angular/material/form-field'; // Optional f
 import { MatInputModule } from '@angular/material/input'; // Optional for input in the table
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ProductFormComponent } from './modals/product-form/product-form.component';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MediaComponent } from './pages/media/media.component';
@@ -32,6 +33,7 @@ import { JourneysComponent } from './pages/journeys/journeys.component';
 import { QRCodeComponent } from './modals/qrcode/qrcode.component';
 import { ProductComponent } from './pages/product/product.component';
 import { UploadModalComponent } from './modals/upload-modal/upload-modal.component';
+import { ShopifyComponent } from './pages/shopify/shopify.component';
 
 @NgModule({
   declarations: [
@@ -49,7 +51,8 @@ import { UploadModalComponent } from './modals/upload-modal/upload-modal.compone
     JourneysComponent,
     QRCodeComponent,
     ProductComponent,
-    UploadModalComponent
+    UploadModalComponent,
+    ShopifyComponent
   ],
   imports: [
     BrowserModule,
@@ -61,6 +64,7 @@ import { UploadModalComponent } from './modals/upload-modal/upload-modal.compone
     MatFormFieldModule,
     MatInputModule,
     MatProgressBarModule,
+    MatProgressSpinnerModule,
     MatTableModule,
     provideFirebaseApp(() => initializeApp(environment.firebase)),
     provideAuth(() => getAuth()),
@@ -72,7 +76,8 @@ import { UploadModalComponent } from './modals/upload-modal/upload-modal.compone
   providers: [
     provideAnimationsAsync('noop'),
     ScreenTrackingService,
-    UserTrackingService
+    UserTrackingService,
+    provideAnimationsAsync()
   ],
   bootstrap: [AppComponent]
 })

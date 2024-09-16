@@ -25,7 +25,10 @@ export class DbService {
   }
 
   get mediaTags() {
-    return this._account.mediaTags;
+    if (this._account) {
+      return this._account.mediaTags;
+    }
+    return [];
   }
 
   get journeys() {
@@ -86,13 +89,14 @@ export class DbService {
     }
   }
 
-  async createAccount(fbUser: any) {
+  async createAccount(fbUser: any, platform?: any) {
     const newUser = this.setNewAccount(fbUser);
     if (newUser && newUser.id) {
       const dateCreated = serverTimestamp();
       newUser['dateCreated'] = dateCreated;
       newUser['dateLastLogin'] = dateCreated;
       newUser['dateUpdated'] = dateCreated;
+      newUser['platforms'] = platform ?? {}; //TODO test
 
       try {
         const userRef = doc(this.firestore, "accounts", newUser.id);
@@ -117,16 +121,53 @@ export class DbService {
       const docSnap = await getDoc(userRef);
 
       if (!docSnap.exists()) {
-          console.error(`Account document with id ${this.account.id} does not exist.`);
-          return false;
+        console.error(`Account document with id ${this.account.id} does not exist.`);
+        return false;
       }
-
       data['updateTime'] = serverTimestamp();
       await updateDoc(userRef, data);
+      this.updateLocalDoc(this.account, data);
       return this.account;
     } catch (error) {
       
     }
+  }
+
+  async shopifyAccountExists(id: string, shop: string) {
+    if (!this.account) {
+      this._account = await this.getAccount(id);
+    }
+    if (this.account && this.account.platforms.shopify && 
+      this.account.platforms.shopify.shop && 
+      this.account.platforms.shopify.shop[shop]) {
+        console.log('shop already exists');
+        return true;
+      }
+    return false;
+  }
+
+  async addShopifyToAccount(shop: string) {
+    if (this.account.platforms.shopify && 
+      this.account.platforms.shopify[shop]) {
+      console.log('shop already exists');
+      return;
+    }
+    const q = query(collection(this.firestore, "accounts"),
+      where(`platforms.shopify.${shop}`, "!=", null));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      const shopifyKey = `platforms.shopify.${shop}`;
+      const platform = {
+        [`${shopifyKey}`]: {}
+      };
+      console.log(platform);
+      await this.updateAccount(platform);
+      return true;
+    } else {
+      console.error("This shopify store has already been connected");
+    }
+    return false;
   }
 
   async updateQRSettings(qrCodeSettings: any) {
@@ -496,11 +537,25 @@ export class DbService {
       'phoneNumber': fbUser.phoneNumber,
       'photoURL': fbUser.photoURL,
       'id': fbUser.uid,
+      'platforms': {},
       'providerData': fbUser.providerData,
       'settings': {
         'qrCode': QRCODE,
       },
       'mediaTags': ["thank you message", "how to", "reviews"]
+    }
+  }
+
+  private updateLocalDoc(localDoc: any, data: any) {
+    for (let key in data) {
+      if (key.includes('.')) {
+        const keys = key.split('.');
+        if (localDoc[keys[0]]) {
+          localDoc[keys[0]][keys[1]] = data[key];
+        }
+      } else {
+        localDoc[key] = data[key];
+      }
     }
   }
 }

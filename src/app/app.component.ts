@@ -1,6 +1,9 @@
 import { Component, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterStateSnapshot } from '@angular/router';
 import { AuthService } from './services/auth.service';
+import { onAuthStateChanged } from 'firebase/auth';
+import { Auth } from '@angular/fire/auth';
+import { DbService } from './services/db.service';
 
 @Component({
   selector: 'app-root',
@@ -11,17 +14,30 @@ export class AppComponent implements OnInit {
   isAuthenticated = false;
   public currentPage: any;
 
-  constructor(private authService: AuthService, private router: Router) {}
+  constructor(private fAuth: Auth, private authService: AuthService, private route: ActivatedRoute, private router: Router, private db: DbService) {}
 
   ngOnInit(): void {
-    this.authService.isLoggedIn().subscribe(isLoggedIn => {
-      this.isAuthenticated = isLoggedIn;
-
-      // If not authenticated, redirect to the auth page
-      if (!isLoggedIn) {
+    onAuthStateChanged(this.fAuth, (user) => {
+      if (user) {
+        this.isAuthenticated = true;
+      } else if (this.router.url.startsWith('/shopify') || this.router.url.startsWith('/auth')) {
+        // this.route.queryParams.subscribe(params => {
+        //   this.router.navigate(['/auth'], { queryParams: params });
+        // });
+      } else {
+        this.isAuthenticated = false;
         this.router.navigate(['/auth']);
       }
     });
+
+    // const storedUser = sessionStorage.getItem('firebaseUser');
+    // if (storedUser) {
+    //   const user = JSON.parse(storedUser);
+    //   this.isAuthenticated = true;
+    //   this.router.navigate(['/dashboard']);
+    // } else {
+    //   // onAuthStateChanged
+    // }
   }
 
   openPage(title: string, page: string) {

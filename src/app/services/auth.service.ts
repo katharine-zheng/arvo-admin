@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
-import { Auth, browserLocalPersistence, createUserWithEmailAndPassword, isSignInWithEmailLink, onAuthStateChanged, sendSignInLinkToEmail, setPersistence, signInWithEmailAndPassword, signInWithEmailLink, signOut } from '@angular/fire/auth';
+import { Auth, createUserWithEmailAndPassword, isSignInWithEmailLink, onAuthStateChanged, sendSignInLinkToEmail, signInWithEmailAndPassword, signInWithEmailLink, signOut } from '@angular/fire/auth';
+import { setPersistence, browserLocalPersistence, User } from 'firebase/auth'
+
 import { Router } from '@angular/router';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { DbService } from './db.service';
@@ -12,28 +14,62 @@ export class AuthService {
   get uid() {
     return this.auth.currentUser?.uid;
   }
-
+  private userSubject = new BehaviorSubject<User | null>(null);
+  user$ = this.userSubject.asObservable();
+  
   private authState = new BehaviorSubject<boolean>(false);
   private actionCodeSettings = {
     url: 'http://localhost:4200/auth',  // Replace with your app's redirect URL
     handleCodeInApp: true,
   };
   constructor(private auth: Auth, private dbService: DbService, private router: Router) {
-    // Check the current auth state when the service initializes
+    // const storedUser = sessionStorage.getItem('firebaseUser');
+    // if (storedUser) {
+    //   const user = JSON.parse(storedUser);
+    // }
+
+    setPersistence(this.auth, browserLocalPersistence)
+      .then(() => {
+        console.log('Auth persistence set to local');
+      })
+      .catch((error) => {
+        console.error('Error setting persistence:', error);
+      });
+
     onAuthStateChanged(this.auth, (user) => {
       if (user) {
         this.authState.next(true);
+        this.setUser(user);  // Update the AuthService
+        setPersistence(auth, browserLocalPersistence);
         this.dbService.getAccount(user.uid);
       } else {
+        this.setUser(null);
         this.authState.next(false);
       }
     });
   }
 
-  async register(email: string, password: string): Promise<void> {
+  setUser(user: User | null) {
+    this.userSubject.next(user);
+  }
+
+  getCurrentUser() {
+    return this.userSubject.value;
+  }
+  // Auth state observable
+  isLoggedIn(): Observable<boolean> {
+    return this.authState.asObservable();
+  }
+
+  // saveSession() {
+    // sessionStorage.setItem('firebaseUser', JSON.stringify(this.auth.currentUser));
+  // }
+
+  //todo not tested
+  async register(email: string, password: string, platform?: any): Promise<void> {
     try {
       const userCredential = await createUserWithEmailAndPassword(this.auth, email, password);
-      await this.dbService.createAccount(userCredential.user);
+      await this.dbService.createAccount(userCredential.user, platform);
       this.router.navigate(['/dashboard']);
       this.authState.next(true);
     } catch (error) {
@@ -47,7 +83,7 @@ export class AuthService {
     try {
       const userCredential = await signInWithEmailAndPassword(this.auth, email, password);
       await this.dbService.getAccount(userCredential.user.uid);
-      this.router.navigate(['/dashboard']);
+      // this.router.navigate(['/dashboard']);
       this.authState.next(true);
     } catch (error) {
       console.error('Login failed:', error);
@@ -71,16 +107,11 @@ export class AuthService {
     try {
       await signOut(this.auth);
       this.authState.next(false);
-      this.router.navigate(['/auth']);
+      // this.router.navigate(['/auth']);
     } catch (error) {
       console.error('Logout failed:', error);
       throw error;
     }
-  }
-
-  // Auth state observable
-  isLoggedIn(): Observable<boolean> {
-    return this.authState.asObservable();
   }
 
   // Function to send sign-in link to the user's email
@@ -105,13 +136,13 @@ export class AuthService {
         if (enteredEmail) {
           return signInWithEmailLink(this.auth, enteredEmail, url).then(() => {
             window.localStorage.removeItem('emailForSignIn');
-            this.router.navigate(['/dashboard']); // Redirect to dashboard or any other page
+            // this.router.navigate(['/dashboard']); // Redirect to dashboard or any other page
           });
         }
       } else {
         return signInWithEmailLink(this.auth, email, url).then(() => {
           window.localStorage.removeItem('emailForSignIn');
-          this.router.navigate(['/dashboard']);
+          // this.router.navigate(['/dashboard']);
         });
       }
     }
