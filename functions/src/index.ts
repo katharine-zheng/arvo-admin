@@ -129,48 +129,68 @@ export function validateHmac(query: any, secret: string): any {
  */
 export async function storeShopifyData(accountId: string,
   accessToken: string, shopData: any): Promise<boolean> {
-  const docRef = db.collection("accounts").doc(accountId);
-  const doc = await docRef.get();
-  const updateTime = admin.firestore.FieldValue.serverTimestamp();
+  try {
+    const docRef = db.collection("accounts").doc(accountId);
+    const doc = await docRef.get();
+    const updateTime = admin.firestore.FieldValue.serverTimestamp();
+    const domain = shopData.myshopify_domain;
+    const batch = db.batch();
 
-  logger.log(`accountId: ${accountId}`);
-  if (doc.exists) {
-    await docRef.update({
-      [`platformStores.${shopData.id}`]: {
-        accessToken,
-        updateTime,
-        type: "shopify",
-        shop: shopData,
-        id: shopData.id,
-        subdomain: shopData.myshopify_domain,
-      },
+    logger.log(`accountId: ${accountId}`);
+    if (doc.exists) {
+      batch.update(docRef, {
+        [`platformStores.${shopData.id}`]: {
+          accessToken,
+          updateTime,
+          type: "shopify",
+          shop: shopData,
+          id: shopData.id,
+          subdomain: domain,
+        },
+      });
+      logger.log(`Access token saved for account id: ${doc.id}`);
+    } else {
+      logger.error(`storeShopifyData: account not found: ${accountId}`);
+      return false;
+    }
+
+    const storeRef = db.collection("platformStores")
+      .doc(`shopify-${shopData.id}`);
+    batch.set(storeRef, {
+      accountId,
+      accessToken,
+      updateTime,
+      id: shopData.id,
+      subdomain: domain,
+      shop: shopData,
+      type: "shopify",
     });
-    logger.log(`Access token saved for account id: ${doc.id}`);
+    logger.log("Access token saved for platform store");
+    await batch.commit();
     return true;
-  } else {
-    logger.error(`storeShopifyData: account not found: ${accountId}`);
+  } catch (error) {
+    logger.error("Error checking Shopify store:", error);
     return false;
   }
 }
 
 /**
  * Retrieves the access token for the specified shop.
- * @param {string} id - Account id
- * @param {string} storeId - The name of the shop.
+ * @param {string} storeId - store id
  * @return {Promise<any>} A promise that resolves to the access token.
  */
-export async function _getShopifyToken(id: string, storeId: string):
+export async function _getShopifyAccessToken(storeId: string):
   Promise<any> {
   try {
-    const docRef = db.collection("accounts").doc(id);
+    const docRef = db.collection("platformStores").doc(`shopify-${storeId}`);
     const doc = await docRef.get();
 
     if (doc.exists) {
       const data = doc.data();
-      if (data && data.platformStores && data.platformStores[storeId]) {
-        const storeData = data.platformStores[storeId];
-        logger.log(storeData.accessToken);
-        return storeData.accessToken;
+      if (data) {
+        return data.accessToken;
+      } else {
+        logger.error(`_getShopifyAccessToken: token not found: ${storeId}`);
       }
     }
 
@@ -225,7 +245,6 @@ exports.uninstallShopify = onRequest(
       const shopDomain = req.body.myshopify_domain;
       const storeId = req.body.id;
       logger.info(req.body);
-      logger.info(req.body.id);
       logger.info(`App uninstalled from store: ${shopDomain}`);
       try {
         const accountId = await getAccountIdByShopId(storeId);
@@ -235,13 +254,19 @@ exports.uninstallShopify = onRequest(
           return;
         }
 
-        // TODO uncomment
-        // await admin.firestore().collection("accounts")
-        //   .doc(accountId.toString())
-        //   .update({[`platformStores.${storeId}`]:
-        //     admin.firestore.FieldValue.delete(),
-        //   });
-        // logger.info(`Store data for ${shopDomain} deleted successfully.`);
+        const batch = db.batch();
+        const accountRef = admin.firestore().collection("accounts")
+          .doc(accountId.toString());
+
+        batch.update(accountRef, {[`platformStores.${storeId}`]:
+          admin.firestore.FieldValue.delete(),
+        });
+
+        const storeRef = db.collection("platformStores")
+          .doc(`shopify-${storeId}`);
+        batch.delete(storeRef);
+        await batch.commit();
+        logger.info(`Store data for ${shopDomain} deleted successfully.`);
       } catch (error) {
         logger.error(`Error deleting store data for ${shopDomain}:`, error);
         res.status(500).send("Error cleaning up store data");
@@ -344,13 +369,13 @@ exports.getShopifyProducts = onRequest(async (req, res) => {
     res.set("Access-Control-Allow-Methods", "GET, POST");
     res.set("Access-Control-Allow-Headers", "Content-Type");
 
-    const {id, storeId, shop} = req.body.data;
-    if (!id || !storeId || !shop) {
-      logger.error(`Required parameter missing: ${id} - ${shop} - ${storeId}`);
+    const {storeId, shop} = req.body.data;
+    if (!storeId || !shop) {
+      logger.error(`Required parameter missing: ${shop} - ${storeId}`);
       res.status(400).send("CF: getProducts - Missing parameters");
       return;
     }
-    const accessToken = await _getShopifyToken(id, storeId);
+    const accessToken = await _getShopifyAccessToken(storeId);
     if (!accessToken) {
       logger.error("Missing access token");
       res.status(400).send("CF: getProducts - Missing access token");
