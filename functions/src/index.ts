@@ -1,18 +1,30 @@
 import {onRequest} from "firebase-functions/v2/https";
+import {defineSecret} from "firebase-functions/params";
+
 import * as shopify from "./shopify";
 // import * as admin from "firebase-admin";
 // admin.initializeApp();
 // const db = admin.firestore();
 // const projectId = (admin.app().options).projectId;
+const shopifyApiKey = defineSecret("SHOPIFY_API_KEY");
+const shopifyApiSecret = defineSecret("SHOPIFY_API_SECRET");
+export const shopifyInitAuth = onRequest(
+  {secrets: [shopifyApiKey, shopifyApiSecret]},
+  shopify.initAuth);
+export const shopifyAuthCallback = onRequest(
+  {secrets: [shopifyApiKey, shopifyApiSecret]},
+  shopify.authCallback);
+export const shopifyOnAppUninstall = onRequest(
+  {secrets: [shopifyApiKey, shopifyApiSecret]},
+  shopify.onAppUninstall);
+export const shopifyOnProductsUpdate = onRequest(
+  {secrets: [shopifyApiKey, shopifyApiSecret]},
+  shopify.onProductsUpdate);
 
-exports.shopifyInitAuth = onRequest(shopify.initAuth);
-exports.shopifyAuthCallback = onRequest(shopify.authCallback);
-exports.shopifyGetProducts = onRequest(shopify.getProducts);
-exports.shopifyOnAppUninstall = onRequest(shopify.onAppUninstall);
-
-// exports.createShopifySubscription =
+// export const shopifyGetProducts = onRequest(shopify.getProducts);
+// export const createShopifySubscription =
 //   onRequest(shopify.createSubscription);
-// exports.cancelShopifySubscription =
+// export const cancelShopifySubscription =
 //   onRequest(shopify.cancelSubscription);
 
 // todo onDeleteAccount trigger
