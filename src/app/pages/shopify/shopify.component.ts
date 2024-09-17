@@ -1,8 +1,6 @@
 import { Component } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ShopifyService } from '../../services/shopify.service';
 import { DbService } from '../../services/db.service';
-import { AuthService } from '../../services/auth.service';
 import { Auth, onAuthStateChanged } from '@angular/fire/auth';
 
 @Component({
@@ -43,29 +41,31 @@ export class ShopifyComponent {
         if (!this.db.account) {
           await this.db.getAccount(id);
         }
-        const exists = await this.db.shopifyAccountExists(shopName);
-        if (exists) {
-          this.isLoading = false;
-          return;
-        }
-
-        const queryParamsArray = [];
-        for (const key in params) {
-          if (params.hasOwnProperty(key)) {
-            const encodedKey = encodeURIComponent(key);
-            const encodedValue = encodeURIComponent(params[key]);
-            queryParamsArray.push(`${encodedKey}=${encodedValue}`);
+        if (this.db.account) {
+          const exists = await this.db.shopifyAccountExists(shopName);
+          if (exists) {
+            this.isLoading = false;
+            return;
           }
+
+          const queryParamsArray = [];
+          for (const key in params) {
+            if (params.hasOwnProperty(key)) {
+              const encodedKey = encodeURIComponent(key);
+              const encodedValue = encodeURIComponent(params[key]);
+              queryParamsArray.push(`${encodedKey}=${encodedValue}`);
+            }
+          }
+
+          queryParamsArray.push(`state=${this.db.account.id}`);
+
+          let oauthUrl = `https://us-central1-arvo-prod.cloudfunctions.net/shopifyInitAuth?`;
+          oauthUrl += queryParamsArray.join('&');
+          // this.auth.saveSession();
+          this.isLoading = false;
+          // Redirect to the final Firebase Function URL with query parameters
+          window.location.href = oauthUrl;
         }
-
-        queryParamsArray.push(`state=${this.db.account.id}`);
-
-        let oauthUrl = `https://us-central1-arvo-prod.cloudfunctions.net/shopifyInitAuth?`;
-        oauthUrl += queryParamsArray.join('&');
-        // this.auth.saveSession();
-        this.isLoading = false;
-        // Redirect to the final Firebase Function URL with query parameters
-        window.location.href = oauthUrl;
       }
     });
   }

@@ -7,9 +7,9 @@ import { Functions, httpsCallable } from '@angular/fire/functions';
 })
 export class ShopifyService {
   private _products: any[] = [];
+  private getShopifyProductsFn: string = 'shopifyGetProducts';
 
-  constructor(private fn: Functions, private db: DbService) { 
-  }
+  constructor(private fn: Functions, private db: DbService) {}
 
   set products(products: any[]) {
     this._products = products;
@@ -18,8 +18,6 @@ export class ShopifyService {
   get products(): any[] {
     return this._products;
   }
-
-  private getShopifyProductsFn: string = 'getShopifyProducts';
 
   async getShopifyProducts(storeId: string, shop: string) {
     const account = this.db.account;

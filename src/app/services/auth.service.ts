@@ -59,7 +59,6 @@ export class AuthService {
     // sessionStorage.setItem('firebaseUser', JSON.stringify(this.auth.currentUser));
   // }
 
-  //todo not tested
   async register(email: string, password: string, platform?: any): Promise<void> {
     try {
       const userCredential = await createUserWithEmailAndPassword(this.auth, email, password);
