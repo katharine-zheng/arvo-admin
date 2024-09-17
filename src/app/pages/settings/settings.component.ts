@@ -12,23 +12,27 @@ import { QRCODE } from '../../constants/qrcode';
 export class SettingsComponent {
   qrCodeElement: HTMLElement | undefined | null;
   qrCodeSettings: any;
-  qrCodeColor: string = '#000000'; // Default color for QR code
-  // qrCodeLogo: any;
+  qrCodeColor: string = '#000000';
   url: string = "https://stance-live-admin.web.app/login";
 
   constructor(private db: DbService, private qrCodeService: QRCodeService) {}
   
   ngOnInit(): void {
-    this.qrCodeSettings = this.db.account.settings.qrCode;
-    // this.qrCode.append(document.getElementById("qrCodeContainer")!);
+    this.initSettings();
+  }
 
-    const logoUrl = "";
-    if (this.qrCodeElement) {
-      this.qrCodeElement.innerHTML = ""; // Clear existing QR code if any
+  initSettings() {
+    if (this.db.account) {
+      this.qrCodeSettings = this.db.account.settings.qrCode;
+
+      const logoUrl = "";
+      if (this.qrCodeElement) {
+        this.qrCodeElement.innerHTML = "";
+      }
+
+      this.qrCodeElement = document.getElementById('qrCodeContainer');
+      this.qrCodeService.generateQRCode(this.qrCodeSettings, this.url, logoUrl, this.qrCodeElement!);
     }
-
-    this.qrCodeElement = document.getElementById('qrCodeContainer'); // Get the container where the QR code will be rendered
-    this.qrCodeService.generateQRCode(this.qrCodeSettings, this.url, logoUrl, this.qrCodeElement!);
   }
 
   uploadLogo(event: any) {

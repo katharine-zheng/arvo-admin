@@ -40,14 +40,14 @@ export class ShopifyComponent {
         this.isLoading = true;
         const shopName = shop.replace('.myshopify.com', '');
         // check to see if this shop already exists in the account
-        const exists = await this.db.shopifyAccountExists(id, shopName);
+        if (!this.db.account) {
+          await this.db.getAccount(id);
+        }
+        const exists = await this.db.shopifyAccountExists(shopName);
         if (exists) {
           this.isLoading = false;
           return;
         }
-
-        // add the shopify name to the account
-        await this.db.addShopifyToAccount(shopName);
 
         const queryParamsArray = [];
         for (const key in params) {
@@ -58,13 +58,13 @@ export class ShopifyComponent {
           }
         }
 
-        let oauthUrl = `https://us-central1-arvo-prod.cloudfunctions.net/initAuth?`;
-        // Join all key-value pairs with '&' and append them to the base URL
-        oauthUrl += queryParamsArray.join('&');
+        queryParamsArray.push(`state=${this.db.account.id}`);
 
-        // Redirect to the final Firebase Function URL with appended query parameters
+        let oauthUrl = `https://us-central1-arvo-prod.cloudfunctions.net/shopifyInitAuth?`;
+        oauthUrl += queryParamsArray.join('&');
         // this.auth.saveSession();
         this.isLoading = false;
+        // Redirect to the final Firebase Function URL with query parameters
         window.location.href = oauthUrl;
       }
     });

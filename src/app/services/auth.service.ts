@@ -28,13 +28,7 @@ export class AuthService {
     //   const user = JSON.parse(storedUser);
     // }
 
-    setPersistence(this.auth, browserLocalPersistence)
-      .then(() => {
-        console.log('Auth persistence set to local');
-      })
-      .catch((error) => {
-        console.error('Error setting persistence:', error);
-      });
+    setPersistence(this.auth, browserLocalPersistence);
 
     onAuthStateChanged(this.auth, (user) => {
       if (user) {

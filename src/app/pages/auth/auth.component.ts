@@ -11,7 +11,6 @@ import { DbService } from '../../services/db.service';
 export class AuthComponent {
 
   private params: any;
-  private shopifyShop: string | null = null;
   email = "";
   password = "";
   isLoginMode = true; // Toggle between login and registration
@@ -24,7 +23,6 @@ export class AuthComponent {
       const shop = params['shop'];
       const hmac = params['hmac'];
       if (shop && hmac) {
-        this.shopifyShop = this.removeMyShopifyDomain(shop);
       } else if (this.auth.uid) {
         this.router.navigate(['/dashboard']);
       }
@@ -50,19 +48,8 @@ export class AuthComponent {
   async onSubmit(): Promise<void> {
     if (this.isLoginMode) {
       await this.auth.login(this.email, this.password);
-      if (this.shopifyShop) {
-        await this.db.addShopifyToAccount(this.shopifyShop);
-      }
     } else {
-      let platform = null;
-      if (this.shopifyShop) {
-        // platform = {shopify: this.shopifyShop};
-        const shopifyKey = `platforms.shopify.${this.shopifyShop}`;
-        platform = {
-          [`${shopifyKey}`]: {}
-        };
-      }
-      await this.auth.register(this.email, this.password, platform);
+      await this.auth.register(this.email, this.password);
     }
 
     if (this.params) {

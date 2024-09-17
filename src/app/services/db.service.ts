@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { User } from '@angular/fire/auth';
-import { Firestore, QueryConstraint, addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from '@angular/fire/firestore';
+import { Firestore, QueryConstraint, addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, limit, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from '@angular/fire/firestore';
 import { BehaviorSubject } from 'rxjs';
 import { QRCODE } from '../constants/qrcode';
 
@@ -133,41 +133,19 @@ export class DbService {
     }
   }
 
-  async shopifyAccountExists(id: string, shop: string) {
-    if (!this.account) {
-      this._account = await this.getAccount(id);
-    }
-    if (this.account && this.account.platforms.shopify && 
-      this.account.platforms.shopify.shop && 
-      this.account.platforms.shopify.shop[shop]) {
-        console.log('shop already exists');
-        return true;
-      }
-    return false;
-  }
+  async shopifyAccountExists(domain: string) {
+    try {
+      // Define the query to check for the myshopify_domain in platformStores collection
+      const platformStoresRef = collection(this.firestore, 'platformStores');
+      const q = query(platformStoresRef, where('subdomain', '==', domain));
 
-  async addShopifyToAccount(shop: string) {
-    if (this.account.platforms.shopify && 
-      this.account.platforms.shopify[shop]) {
-      console.log('shop already exists');
-      return;
+      // Execute the query
+      const querySnapshot = await getDocs(q);
+      return !querySnapshot.empty;
+    } catch (error) {
+      console.error('Error checking myshopify_domain: ', error);
+      return false;
     }
-    const q = query(collection(this.firestore, "accounts"),
-      where(`platforms.shopify.${shop}`, "!=", null));
-    const querySnapshot = await getDocs(q);
-
-    if (querySnapshot.empty) {
-      const shopifyKey = `platforms.shopify.${shop}`;
-      const platform = {
-        [`${shopifyKey}`]: {}
-      };
-      console.log(platform);
-      await this.updateAccount(platform);
-      return true;
-    } else {
-      console.error("This shopify store has already been connected");
-    }
-    return false;
   }
 
   async updateQRSettings(qrCodeSettings: any) {
@@ -537,7 +515,7 @@ export class DbService {
       'phoneNumber': fbUser.phoneNumber,
       'photoURL': fbUser.photoURL,
       'id': fbUser.uid,
-      'platforms': {},
+      'platformStores': {},
       'providerData': fbUser.providerData,
       'settings': {
         'qrCode': QRCODE,

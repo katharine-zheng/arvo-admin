@@ -3,9 +3,9 @@ import { MatDialog } from '@angular/material/dialog';
 import { ProductFormComponent } from '../../modals/product-form/product-form.component';
 import { DbService } from '../../services/db.service';
 import { DeleteDialogComponent } from '../../modals/delete-dialog/delete-dialog.component';
-import { QRCodeService } from '../../services/qrcode.service';
 import { Router } from '@angular/router';
 import { QRCodeComponent } from '../../modals/qrcode/qrcode.component';
+import { ShopifyService } from '../../services/shopify.service';
 
 @Component({
   selector: 'app-products',
@@ -14,6 +14,7 @@ import { QRCodeComponent } from '../../modals/qrcode/qrcode.component';
 })
 export class ProductsComponent {
   public searchTerm: string = "";
+  public importedProducts: any[] = [];
   journeys: any = {};
   displayedColumns: string[] = ['name', 'actions', 'qr code'];
   public products: any[] = [];
@@ -21,7 +22,7 @@ export class ProductsComponent {
   view: 'grid' | 'table' = 'table';
   qrCodeElement: HTMLElement | undefined | null; // To store the reference to the QR code container
 
-  constructor(private router: Router, private dialog: MatDialog, private qrCodeService: QRCodeService, private db: DbService) {}
+  constructor(private router: Router, private dialog: MatDialog, private shopify: ShopifyService, private db: DbService) {}
 
   ngOnInit() {
     this.getProducts();
@@ -126,6 +127,21 @@ export class ProductsComponent {
         this.deleteProduct(product.id); // Call the delete method if the user confirms
       }
     });
+  }
+
+  async importShopifyProducts() {
+    if (this.db.account.platformStores) {
+      const shopValues: any[] = Object.values(this.db.account.platformStores);
+      if (shopValues.length === 0) {
+        console.error("");
+      } else if (shopValues.length === 1 && shopValues[0]) {
+        const shop = shopValues[0].subdomain;
+        const id = shopValues[0].id;
+        this.importedProducts = await this.shopify.getShopifyProducts(id, shop);
+      } else {
+        // NOTE only supports one shopify store
+      }
+    }
   }
 
   async deleteProduct(productId: string) {
