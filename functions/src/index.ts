@@ -1,30 +1,26 @@
 import {onRequest} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
-
+const shopifyApiSecret = defineSecret("SHOPIFY_API_SECRET");
 import * as shopify from "./shopify";
 // import * as admin from "firebase-admin";
 // admin.initializeApp();
 // const db = admin.firestore();
 // const projectId = (admin.app().options).projectId;
-const shopifyApiKey = defineSecret("SHOPIFY_API_KEY");
-const shopifyApiSecret = defineSecret("SHOPIFY_API_SECRET");
 export const shopifyAddWebhook = onRequest(shopify.addWebhook);
-export const shopifyInitAuth = onRequest(
-  {secrets: [shopifyApiKey, shopifyApiSecret]},
-  shopify.initAuth);
-export const shopifyAuthCallback = onRequest(
-  {secrets: [shopifyApiKey, shopifyApiSecret]},
-  shopify.authCallback);
-export const shopifyOnAppUninstall = onRequest(
-  {secrets: [shopifyApiKey, shopifyApiSecret]},
-  shopify.onAppUninstall);
-export const shopifyOnProductsUpdate = onRequest(
-  {secrets: [shopifyApiKey, shopifyApiSecret]},
-  shopify.onProductsUpdate);
+export const shopifyInitAuth = onRequest(shopify.initAuth);
+export const shopifyAuthCallback = onRequest(shopify.authCallback);
+export const shopifyDeleteWebhook = onRequest(shopify.deleteWebhook);
+export const shopifyGetWebhooks = onRequest(shopify.getWebhooks);
+export const shopifyOnAppUninstall = onRequest(shopify.onAppUninstall);
+export const shopifyOnProductsCreate = onRequest(
+  {secrets: [shopifyApiSecret]},
+  shopify.onProductsCreate
+);
+export const shopifyOnProductsUpdate = onRequest(shopify.onProductsUpdate);
 export const shopifyOnProductsDelete = onRequest(
-  // {secrets: [shopifyApiKey, shopifyApiSecret]},
-  shopify.onProductsUpdate);
-// export const shopifyGetProducts = onRequest(shopify.getProducts);
+  {secrets: [shopifyApiSecret]},
+  shopify.onProductsDelete
+);
 // export const createShopifySubscription =
 //   onRequest(shopify.createSubscription);
 // export const cancelShopifySubscription =

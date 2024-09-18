@@ -104,15 +104,25 @@ export const authCallback = onRequest(
       const response = await axios.post(accessTokenRequestUrl,
         accessTokenPayload);
       const accessToken = response.data.access_token;
-      const shopData = await getShop(shop.toString(), accessToken);
-      const products = await getProducts(shop.toString(), accessToken);
-      await storeInitialData(state.toString(), accessToken, shopData, products);
+      const domain = shop.toString();
+
       await registerWebhook(
-        "app/uninstalled", "OnAppUninstall", shop.toString(), accessToken);
+        "app/uninstalled", "OnAppUninstall", domain, accessToken);
       await registerWebhook(
-        "products/update", "OnProductsUpdate", shop.toString(), accessToken);
+        "products/create", "OnProductsCreate", domain, accessToken);
       await registerWebhook(
-        "products/delete", "OnProductsDelete", shop.toString(), accessToken);
+        "products/update", "OnProductsUpdate", domain, accessToken);
+      await registerWebhook(
+        "products/delete", "OnProductsDelete", domain, accessToken);
+
+      const shopData = await fetchShop(shop.toString(), accessToken);
+      const products = await fetchProducts(shop.toString(), accessToken);
+      // const shopData = await fetchData(domain, "shop", accessToken);
+      // const products = await fetchData(domain, "products", accessToken);
+      const webhooks = await fetchWebhooks(domain, accessToken);
+      await storeInitialData(state.toString(), accessToken, {
+        shop: shopData, products, webhooks,
+      });
 
       // todo update
       const redirectUrl = "https://arvo-prod.web.app/dashboard";
@@ -130,7 +140,7 @@ export const authCallback = onRequest(
  * @param {string} accessToken access token
  * @return {Promise<any>}
  */
-export async function getShop(shop: string, accessToken: string):
+export async function fetchShop(shop: string, accessToken: string):
 Promise<any> {
   const headers = {
     headers: {
@@ -159,7 +169,7 @@ Promise<any> {
  * @param {string} accessToken access token
  * @return {Promise<any>}
  */
-export async function getProducts(shop: string, accessToken: string):
+export async function fetchProducts(shop: string, accessToken: string):
 Promise<any> {
   const headers = {
     headers: {
@@ -182,16 +192,49 @@ Promise<any> {
 }
 
 /**
+ * Getting shopify products
+ * @param {string} shop shopify domain
+//  * @param {string} type data type
+ * @param {string} accessToken access token
+ * @return {Promise<any>}
+ */
+export async function fetchWebhooks(shop: string, accessToken: string):
+Promise<any> {
+  // logger.log(`shop: ${shop}, type: ${type}, token: ${accessToken}`);
+  const headers = {
+    headers: {
+      "Content-Type": "application/json",
+      "X-Shopify-Access-Token": accessToken,
+    },
+  };
+
+  const endpoint = `https://${shop}/admin/api/2024-01/webhooks.json`;
+  let result;
+  try {
+    const response = await axios.get(endpoint, headers);
+    if (response.data && response.data.webhooks) {
+      result = response.data.webhooks;
+    } else {
+      logger.error("fetchWebhooks: empty");
+    }
+  } catch (error) {
+    logger.error("fetchWebhooks: Error getting webhooks: ", error);
+  }
+  return result;
+}
+
+/**
  * Retrieves the access token for the specified shop.
  * @param {string} accountId - Account Id
  * @param {string} accessToken - token.
- * @param {any} shopData - shopify shop data
- * @param {any} products - shopify products
+ * @param {any} data - fetched data
  * @return {Promise<boolean>} A promise that resolves to the access token.
  */
 export async function storeInitialData(accountId: string,
-  accessToken: string, shopData: any, products: any): Promise<boolean> {
-  const domain = shopData.myshopify_domain;
+  accessToken: string, data: any): Promise<boolean> {
+  const {shop, products, webhooks} = data;
+  const domain = shop.myshopify_domain;
+  const shopId = shop.id;
   try {
     const docRef = db.collection("accounts").doc(accountId);
     const doc = await docRef.get();
@@ -200,12 +243,12 @@ export async function storeInitialData(accountId: string,
 
     if (doc.exists) {
       batch.update(docRef, {
-        [`platformStores.${shopData.id}`]: {
+        [`platformStores.${shopId}`]: {
           accessToken,
           updateTime,
           type: "shopify",
-          shop: shopData,
-          id: shopData.id,
+          shop: shop,
+          id: shopId,
           subdomain: domain,
         },
         updateTime,
@@ -221,10 +264,11 @@ export async function storeInitialData(accountId: string,
       accountId,
       accessToken,
       updateTime,
-      id: shopData.id,
+      id: shopId,
       subdomain: domain,
-      shop: shopData,
+      shop: shop,
       type: "shopify",
+      webhooks,
     });
     logger.log("Access token saved for platform store");
 
@@ -233,7 +277,7 @@ export async function storeInitialData(accountId: string,
         const newDocRef = db.collection("products").doc();
         const productData = {
           id: newDocRef.id,
-          shopId: shopData.id,
+          shopId: shopId,
           accountId,
           type: "shopify",
           description: product.body_html,
@@ -321,26 +365,26 @@ function verifyWebhook(req: any, secret: string): boolean {
 
 /**
  * Retrieves the access token for the specified shop.
- * @param {string} storeId - store id
+ * @param {string} shopId - store id
  * @return {Promise<any>} A promise that resolves to the access token.
  */
-export async function getAccessToken(storeId: string):
+export async function getAccessToken(shopId: string):
   Promise<any> {
   try {
     const storeSnapshot = await db.collection("platformStores")
-      .where("id", "==", storeId)
+      .where("id", "==", shopId)
       .limit(1)
       .get();
 
     if (storeSnapshot.empty) {
-      logger.log(`Store not found: ${storeId}`);
+      logger.log(`getAccessToken: Store not found: ${shopId}`);
       return null;
     } else {
       const data = storeSnapshot.docs[0].data();
       return data.accessToken;
     }
   } catch (error) {
-    logger.error(error);
+    logger.error("getAccessToken: ", error);
     throw new HttpsError("internal", "Error occurred");
   }
 }
@@ -361,9 +405,9 @@ export const onAppUninstall = onRequest(
       }
 
       const shopDomain = req.body.myshopify_domain;
-      const storeId = req.body.id;
+      const shopId = req.body.id;
       try {
-        const accountId = await getAccountIdByShopId(storeId);
+        const accountId = await getAccountIdByShopId(shopId);
         if (!accountId) {
           logger.error(`onAppUninstall: Account not found for ${shopDomain}`);
           res.status(404).send("Account not found");
@@ -374,32 +418,32 @@ export const onAppUninstall = onRequest(
         const accountRef = admin.firestore().collection("accounts")
           .doc(accountId.toString());
 
-        batch.update(accountRef, {[`platformStores.${storeId}`]:
+        batch.update(accountRef, {[`platformStores.${shopId}`]:
           admin.firestore.FieldValue.delete(),
         });
 
         const productsSnapshot = await db.collection("products")
-          .where("shopId", "==", storeId)
+          .where("shopId", "==", shopId)
           .get();
 
         if (productsSnapshot.empty) {
-          logger.log(`No products found for storeId: ${storeId}`);
+          logger.log(`No products found for shopId: ${shopId}`);
         } else {
-          // Use a batch to delete all products associated with the storeId
+          // Use a batch to delete all products associated with the shopId
           productsSnapshot.forEach((doc: any) => {
             batch.delete(doc.ref);
           });
         }
 
         const storeSnapshot = await db.collection("platformStores")
-          .where("id", "==", storeId)
+          .where("id", "==", shopId)
           .limit(1)
           .get();
 
         if (storeSnapshot.empty) {
-          logger.log(`Store not found: ${storeId}`);
+          logger.log(`Store not found: ${shopId}`);
         } else {
-          logger.log(`Store ${storeId} removed`);
+          logger.log(`Store ${shopId} removed`);
           batch.delete(storeSnapshot.docs[0].ref);
         }
 
@@ -433,7 +477,7 @@ async function getAccountIdByShopId(shopId: string): Promise<any> {
       .get();
 
     if (querySnapshot.empty) {
-      logger.error("getAccountIdByShopId: account not found. storeId:", shopId);
+      logger.error("getAccountIdByShopId: account not found. shopId:", shopId);
       return null;
     }
     logger.log(`***getAccountIdByShopId: done: ${querySnapshot.docs[0].id}`);
@@ -443,6 +487,58 @@ async function getAccountIdByShopId(shopId: string): Promise<any> {
     return null;
   }
 }
+
+export const onProductsCreate = onRequest(
+  {secrets: [shopifyApiSecret]},
+  async (req, res) => {
+    corsHandler(req, res, async () => {
+      res.set("Access-Control-Allow-Origin", "*");
+      res.set("Access-Control-Allow-Methods", "GET, POST");
+      res.set("Access-Control-Allow-Headers", "Content-Type");
+
+      // Verify that the request came from Shopify
+      if (!verifyWebhook(req, shopifyApiSecret.value())) {
+        logger.error("Shopify HMAC verification failed.");
+        res.status(403).send("Forbidden");
+        return;
+      }
+
+      const product = req.body;
+      const productId = product.id;
+      if (!productId) {
+        res.status(400).send("Product ID is missing");
+        return;
+      }
+
+      try {
+        const productRef = db.collection("products").doc();
+        const productData = {
+          id: productRef.id,
+          description: product.body_html,
+          price: product.variants[0].price,
+          productId: product.id,
+          images: product.images,
+          options: product.options,
+          status: product.status,
+          tags: product.tags,
+          title: product.title,
+          type: product.product_type,
+          variants: product.variants,
+          vendor: product.vendor,
+          updateTime: admin.firestore.FieldValue.serverTimestamp(),
+        };
+
+        await productRef.set(productData);
+        res.status(200).send(`Product ${productId} updated.`);
+      } catch (error) {
+        console.error("Error updating product:", error);
+        res.status(500).send("Internal Server Error");
+      }
+
+      // Respond with success
+      res.status(200).send("Uninstall webhook handled");
+    });
+  });
 
 export const onProductsUpdate = onRequest(
   {secrets: [shopifyApiSecret]},
@@ -467,16 +563,17 @@ export const onProductsUpdate = onRequest(
       }
 
       try {
-        const productDocRef = db.collection("products")
+        const snapshot = await db.collection("products")
           .where("productId", "==", productId)
-          .limit(1);
-        const snapshot = await productDocRef.get();
+          .limit(1)
+          .get();
 
         if (snapshot.empty) {
+          logger.error(`Product ${productId} not found`);
           res.status(404).send(`Product ${productId} not found`);
           return;
         }
-
+        const storeRef = snapshot.docs[0].ref;
         const productData = {
           description: product.body_html,
           price: product.variants[0].price,
@@ -492,7 +589,7 @@ export const onProductsUpdate = onRequest(
           updateTime: admin.firestore.FieldValue.serverTimestamp(),
         };
 
-        await snapshot.docs[0].ref.update(productData);
+        await storeRef.update(productData);
         res.status(200).send(`Product ${productId} updated.`);
       } catch (error) {
         console.error("Error updating product:", error);
@@ -504,7 +601,6 @@ export const onProductsUpdate = onRequest(
     });
   });
 
-// note not tested
 export const onProductsDelete = onRequest(
   {secrets: [shopifyApiSecret]},
   async (req, res) => {
@@ -522,27 +618,37 @@ export const onProductsDelete = onRequest(
 
       const product = req.body;
       const productId = product.id;
-
       if (!productId) {
         res.status(400).send("Product ID is missing");
         return;
       }
 
       try {
-        const productDocRef = db.collection("products")
+        const snapshot = await db.collection("products")
           .where("productId", "==", productId)
-          .limit(1);
-        const snapshot = await productDocRef.get();
+          .limit(1)
+          .get();
 
         if (snapshot.empty) {
+          logger.error(`Product ${productId} not found`);
           res.status(404).send(`Product ${productId} not found`);
           return;
         }
 
-        await snapshot.docs[0].ref.delete();
+        const productDoc = snapshot.docs[0];
+        if (!productDoc) {
+          logger.error(`No document found for productId: ${productId}`);
+          res.status(404).send(`No document found for productId: ${productId}`);
+          return;
+        }
+
+        logger.info(`productId: ${productId}`);
+        logger.info(`length: ${snapshot.docs.length}`);
+        const productRef = snapshot.docs[0].ref;
+        await productRef.delete();
         res.status(200).send(`Product ${productId} deleted.`);
       } catch (error) {
-        console.error("Error updating product:", error);
+        logger.error("Error deleting product:", error);
         res.status(500).send("Internal Server Error");
       }
 
@@ -551,20 +657,191 @@ export const onProductsDelete = onRequest(
     });
   });
 
-export const addWebhook = onRequest(
-  (req, res) => {
-    corsHandler(req, res, async () => {
-      const {topic, functionName, shop, accessToken} = req.query;
-      if (topic && functionName && shop && accessToken) {
-        await registerWebhook(
-          topic.toString(),
-          functionName.toString(),
-          shop.toString(),
-          accessToken.toString());
+export const addWebhook = onRequest((req, res) => {
+  corsHandler(req, res, async () => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "GET, POST");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+
+    const {topic, functionName, shop, shopId} = req.body.data;
+    if (!shop || !shopId || !topic || !functionName) {
+      logger.error(`Parameters missing: ${shop} - ${shopId} -
+      ${topic} - ${functionName}`);
+      return;
+    }
+
+    const accessToken = await getAccessToken(shopId);
+    if (accessToken) {
+      await registerWebhook(topic, functionName, shop, accessToken);
+    } else {
+      logger.error(`Access token missing for: ${shopId}`);
+    }
+  });
+});
+
+export const deleteWebhook = onRequest(async (req, res) => {
+  corsHandler(req, res, async () => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "GET, POST");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+
+    const {shop, shopId, webhookId} = req.body.data;
+    if (!shop || !shopId || !webhookId) {
+      logger.error(`Parameters missing: ${shop} - ${shopId} - ${webhookId}`);
+      return;
+    }
+
+    const accessToken = await getAccessToken(shopId);
+    if (accessToken) {
+      const endpoint = `https://${shop}/admin/api/2024-01/webhooks/${webhookId}.json`;
+      const headers = {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": accessToken,
+        },
+      };
+      try {
+        await axios.delete(endpoint, headers);
+        const storeSnapshot = await db.collection("platformStores")
+          .where("id", "==", shopId)
+          .limit(1)
+          .get();
+
+        if (storeSnapshot.empty) {
+          logger.error(`Store not found / webhook not removed: ${shopId}`);
+        } else {
+          const storeDocRef = storeSnapshot.docs[0].ref;
+          // const storeData = (await storeRef.get()).data();
+          // const data = storeSnapshot.docs[0].data();
+
+          // await storeRef.update(storeRef, {
+          //   webhooks: admin.firestore.FieldValue.arrayRemove()
+          // });
+
+          // const storeDocRef = db.collection('platformStores')
+          // .doc(`shopify-${shopId}`);
+          const storeDoc = await storeDocRef.get();
+          if (!storeDoc.exists) {
+            res.status(404).send(`Store ${shopId} not found`);
+            return;
+          }
+
+          const storeData = storeDoc.data();
+          if (!storeData || !storeData.webhooks) {
+            res.status(404).send(`No webhooks found for store ${shopId}`);
+            logger.error(`No webhooks found for shopify store ${shopId}`);
+            return;
+          }
+
+          const updatedWebhooks = storeData.webhooks
+            .filter((webhook: any) => webhook.id !== webhookId);
+          await storeDocRef.update({
+            webhooks: updatedWebhooks,
+          });
+        }
+        logger.info(`Webhook ${webhookId} deleted for ${shop}`);
+      } catch (error) {
+        logger.error(error);
       }
-    });
-  }
-);
+    } else {
+      logger.error(`Access token missing for: ${shopId}`);
+    }
+  });
+});
+
+export const getWebhooks = onRequest(async (req, res) => {
+  corsHandler(req, res, async () => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "GET, POST");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+
+    const {shopId, shop} = req.body.data;
+    if (!shopId || !shop) {
+      logger.error(`Parameters missing: ${shop} - ${shopId}`);
+      res.status(400).send("CF: getWebhooks - Missing parameters");
+      return;
+    }
+    const accessToken = await getAccessToken(shopId);
+    if (!accessToken) {
+      logger.error("Missing access token");
+      res.status(400).send("CF: getWebhooks - Missing access token");
+      return;
+    }
+    // const list = await fetchWebhooks(shop, accessToken);
+    // if (!list || list.length == 0) {
+    //   logger.error("webhooks not found");
+    // } else {
+    //   logger.info(list);
+    //   return list;
+    // }
+    const headers = {
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": accessToken,
+      },
+    };
+
+    const endpoint = `https://${shop}/admin/api/2024-01/webhooks.json`;
+    let result;
+
+    try {
+      const axiosResponse = await axios.get(endpoint, headers);
+
+      if (axiosResponse.data && axiosResponse.data.webhooks) {
+        result = axiosResponse.data.webhooks;
+      }
+      res.status(200).send({data: result});
+      return result;
+    } catch (error) {
+      logger.error(`CF: an error with shopify webhooks: ${shop}`);
+      res.status(500).send(`CF: an error with shopify webhooks: ${shop}`);
+      return;
+    }
+  });
+});
+
+// export const getProducts = onRequest(async (req, res) => {
+//   corsHandler(req, res, async () => {
+//     res.set("Access-Control-Allow-Origin", "*");
+//     res.set("Access-Control-Allow-Methods", "GET, POST");
+//     res.set("Access-Control-Allow-Headers", "Content-Type");
+
+//     const {shopId, shop} = req.body.data;
+//     if (!shopId || !shop) {
+//       logger.error(`Parameters missing: ${shop} - ${shopId}`);
+//       res.status(400).send("CF: getProducts - Missing parameters");
+//       return;
+//     }
+//     const accessToken = await getAccessToken(shopId);
+//     if (!accessToken) {
+//       logger.error("Missing access token");
+//       res.status(400).send("CF: getProducts - Missing access token");
+//       return;
+//     }
+//     const headers = {
+//       headers: {
+//         "Content-Type": "application/json",
+//         "X-Shopify-Access-Token": accessToken,
+//       },
+//     };
+
+//     const endpoint = `https://${shop}/admin/api/2024-01/products.json`;
+//     let result;
+
+//     try {
+//       const axiosResponse = await axios.get(endpoint, headers);
+
+//       if (axiosResponse.data && axiosResponse.data.products) {
+//         result = axiosResponse.data;
+//       }
+//       res.status(200).send({data: result});
+//       return result;
+//     } catch (error) {
+//       res.status(500).send(`CF: an error with shopify products: ${shop}`);
+//       return;
+//     }
+//   });
+// });
 
 // webhooks to create
 // orders/create **
