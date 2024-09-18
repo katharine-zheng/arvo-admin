@@ -331,7 +331,7 @@ export async function getAccessToken(storeId: string):
       .get();
 
     if (storeSnapshot.empty) {
-      logger.log(`No products found for storeId: ${storeId}`);
+      logger.log(`Store not found: ${storeId}`);
       return null;
     } else {
       const data = storeSnapshot.docs[0].data();
@@ -377,7 +377,7 @@ export const onAppUninstall = onRequest(
         });
 
         const productsSnapshot = await db.collection("products")
-          .where("storeId", "==", storeId)
+          .where("shopId", "==", storeId)
           .get();
 
         if (productsSnapshot.empty) {
@@ -491,7 +491,7 @@ export const onProductsUpdate = onRequest(
           type: product.product_type,
           variants: product.variants,
           vendor: product.vendor,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updateTime: admin.firestore.FieldValue.serverTimestamp(),
         };
 
         await snapshot.docs[0].ref.update(productData);
