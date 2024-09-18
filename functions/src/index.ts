@@ -8,6 +8,7 @@ import * as shopify from "./shopify";
 // const projectId = (admin.app().options).projectId;
 const shopifyApiKey = defineSecret("SHOPIFY_API_KEY");
 const shopifyApiSecret = defineSecret("SHOPIFY_API_SECRET");
+export const shopifyAddWebhook = onRequest(shopify.addWebhook);
 export const shopifyInitAuth = onRequest(
   {secrets: [shopifyApiKey, shopifyApiSecret]},
   shopify.initAuth);
@@ -20,7 +21,9 @@ export const shopifyOnAppUninstall = onRequest(
 export const shopifyOnProductsUpdate = onRequest(
   {secrets: [shopifyApiKey, shopifyApiSecret]},
   shopify.onProductsUpdate);
-
+export const shopifyOnProductsDelete = onRequest(
+  // {secrets: [shopifyApiKey, shopifyApiSecret]},
+  shopify.onProductsUpdate);
 // export const shopifyGetProducts = onRequest(shopify.getProducts);
 // export const createShopifySubscription =
 //   onRequest(shopify.createSubscription);

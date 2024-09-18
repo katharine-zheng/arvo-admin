@@ -111,6 +111,8 @@ export const authCallback = onRequest(
         "app/uninstalled", "OnAppUninstall", shop.toString(), accessToken);
       await registerWebhook(
         "products/update", "OnProductsUpdate", shop.toString(), accessToken);
+      await registerWebhook(
+        "products/delete", "OnProductsDelete", shop.toString(), accessToken);
 
       // todo update
       const redirectUrl = "https://arvo-prod.web.app/dashboard";
@@ -457,18 +459,14 @@ export const onProductsUpdate = onRequest(
         return;
       }
 
-      const productData = req.body;
-      logger.info(productData);
-      logger.info("Got product data");
+      const product = req.body;
+      const productId = product.id;
+      if (!productId) {
+        res.status(400).send("Product ID is missing");
+        return;
+      }
+
       try {
-        const product = req.body;
-        const productId = product.id;
-
-        if (!productId) {
-          res.status(400).send("Product ID is missing");
-          return;
-        }
-
         const productDocRef = db.collection("products")
           .where("productId", "==", productId)
           .limit(1);
@@ -506,11 +504,74 @@ export const onProductsUpdate = onRequest(
     });
   });
 
+// note not tested
+export const onProductsDelete = onRequest(
+  {secrets: [shopifyApiSecret]},
+  async (req, res) => {
+    corsHandler(req, res, async () => {
+      res.set("Access-Control-Allow-Origin", "*");
+      res.set("Access-Control-Allow-Methods", "GET, POST");
+      res.set("Access-Control-Allow-Headers", "Content-Type");
+
+      // Verify that the request came from Shopify
+      if (!verifyWebhook(req, shopifyApiSecret.value())) {
+        logger.error("Shopify HMAC verification failed.");
+        res.status(403).send("Forbidden");
+        return;
+      }
+
+      const product = req.body;
+      const productId = product.id;
+
+      if (!productId) {
+        res.status(400).send("Product ID is missing");
+        return;
+      }
+
+      try {
+        const productDocRef = db.collection("products")
+          .where("productId", "==", productId)
+          .limit(1);
+        const snapshot = await productDocRef.get();
+
+        if (snapshot.empty) {
+          res.status(404).send(`Product ${productId} not found`);
+          return;
+        }
+
+        await snapshot.docs[0].ref.delete();
+        res.status(200).send(`Product ${productId} deleted.`);
+      } catch (error) {
+        console.error("Error updating product:", error);
+        res.status(500).send("Internal Server Error");
+      }
+
+      // Respond with success
+      res.status(200).send("Uninstall webhook handled");
+    });
+  });
+
+export const addWebhook = onRequest(
+  (req, res) => {
+    corsHandler(req, res, async () => {
+      const {topic, functionName, shop, accessToken} = req.query;
+      if (topic && functionName && shop && accessToken) {
+        await registerWebhook(
+          topic.toString(),
+          functionName.toString(),
+          shop.toString(),
+          accessToken.toString());
+      }
+    });
+  }
+);
+
 // webhooks to create
 // orders/create **
 // orders/updated
-// products/update **
-// products/delete
+// products/create
+// products/update ** - done
+// products/delete - not tested
 // customers/create **
 // customer/update
 
