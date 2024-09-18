@@ -19,6 +19,23 @@ export class ShopifyService {
     return this._products;
   }
 
+  async addWebhook(topic: string, functionName: string) {
+    const account = this.db.account;
+    if (account) {
+      const shops: any[] = Object.values(this.db.account.platformStores);
+      if (shops && shops[0]) {
+        const shop = shops[0].subdomain;
+        const accessToken = shops[0].accessToken;
+        const params = { topic, functionName, shop, accessToken };
+        const url = httpsCallable(this.fn, "shopifyAddWebhook");
+        await url(params).then((response: any) => {
+        }).catch((error) => {
+          console.error(error);
+        })
+      }
+    }
+  }
+
   async getShopifyProducts(storeId: string, shop: string) {
     const account = this.db.account;
     if (account) {

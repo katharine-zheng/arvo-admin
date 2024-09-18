@@ -1,99 +1,118 @@
-<div class="product-page-container">
-  <nav>
-    <button mat-raised-button color="primary" (click)="openProductForm()">Add New Product</button>
-    <button mat-raised-button color="primary" (click)="importShopifyProducts()">Import Shopify Products</button>
-  </nav>
-
-  <div class="search-bar">
-    <input type="text" placeholder="Search by product name" [(ngModel)]="searchTerm" (input)="filterProducts()" />
-    <button (click)="clearSearch()">Clear</button>
+<ng-container *ngIf="isLoading">
+  <div class="spinner-container">
+    <mat-spinner [diameter]="50" [strokeWidth]="5" color="primary"></mat-spinner>
   </div>
+</ng-container>
+<ng-container *ngIf="!isLoading">
+  <div class="product-page-container">
+    <nav>
+      <button mat-raised-button color="primary" (click)="openProductForm()">Add New Product</button>
+      <button mat-raised-button color="primary" (click)="addWebhook('products/delete', 'OnProductsDelete')">Add webhook</button>
+    </nav>
 
-  <div class="view-toggle">
-    <button (click)="setView('grid')">Grid View</button>
-    <button (click)="setView('table')">Table View</button>
-  </div>
+    <div class="search-bar">
+      <input type="text" placeholder="Search by product name" [(ngModel)]="searchTerm" (input)="filterProducts()" />
+      <button (click)="clearSearch()">Clear</button>
+    </div>
 
-  <!-- Product List -->
-  <ng-container *ngIf="view === 'grid'" >
-    <div class="grid-container">
-      <div class="grid-item" *ngFor="let product of filteredProducts">
-        <div class="item-image">
-          <img *ngIf="product.imageUrl; else placeholder" [src]="product.imageUrl" alt="{{ product.name }}">
-          <ng-template #placeholder>
-            <div class="image-placeholder">No Image Available</div>
-          </ng-template>
-        </div>
-    
-        <!-- Product Details -->
-        <div class="item-details">
-          <h3>{{ product.name }}</h3>
-          <p>Journey</p>
-          <div class="product-actions">
-            <button mat-raised-button color="primary" (click)="openProduct(product)">Edit</button>
-            <button mat-raised-button color="primary" (click)="openDeleteDialog(product)">Delete</button>
+    <div class="view-toggle">
+      <button (click)="setView('grid')">Grid View</button>
+      <button (click)="setView('table')">Table View</button>
+    </div>
+
+    <!-- Product List -->
+    <ng-container *ngIf="view === 'grid'" >
+      <div class="grid-container">
+        <div class="grid-item" *ngFor="let product of filteredProducts">
+          <div class="item-image">
+            <ng-container *ngIf="product.images && product.images[0]; else placeholder">
+              <img [src]="product.images[0].src" alt="{{ product.title }}">
+            </ng-container>
+            <ng-template #placeholder>
+              <div class="image-placeholder">No Image Available</div>
+            </ng-template>
+          </div>
+      
+          <!-- Product Details -->
+          <div class="item-details">
+            <h3>{{ product.title }}</h3>
+            <div class="product-actions">
+              <button mat-raised-button color="primary" (click)="openProduct(product)">Edit</button>
+              <button mat-raised-button color="primary" (click)="openDeleteDialog(product)">Delete</button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </ng-container>
+    </ng-container>
 
-  <ng-container *ngIf="view === 'table'" >
-    <div class="table-view">
-      <table mat-table [dataSource]="filteredProducts">
-        <ng-container matColumnDef="name">
-          <th mat-header-cell *matHeaderCellDef> Product Name </th>
-          <td mat-cell *matCellDef="let product">{{ product.name }}</td>
-        </ng-container>
+    <ng-container *ngIf="view === 'table'" >
+      <div class="table-view">
+        <table mat-table [dataSource]="filteredProducts">
+          <ng-container matColumnDef="image">
+            <th mat-header-cell *matHeaderCellDef> Product </th>
+            <td mat-cell *matCellDef="let product">
+              <ng-container *ngIf="product.images && product.images[0]">
+                <div class="thumbnail">
+                  <img [src]="product.images[0].src" alt="{{ product.title }}">
+                </div>
+              </ng-container>
+            </td>
+          </ng-container>
 
-        <!-- <ng-container matColumnDef="pre-purchase journey">
-          <th mat-header-cell *matHeaderCellDef>Pre-Purchase Journeys </th>
-          <td mat-cell *matCellDef="let product">
-            <div *ngFor="let journey of product.journeys.prePurchase">
-              {{journey}}
-              {{journey.name}}
-            </div>
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef> Product </th>
+            <td mat-cell *matCellDef="let product">{{ product.title }}</td>
+          </ng-container>
+
+          <!-- <ng-container matColumnDef="pre-purchase journey">
+            <th mat-header-cell *matHeaderCellDef>Pre-Purchase Journeys </th>
+            <td mat-cell *matCellDef="let product">
+              <div *ngFor="let journey of product.journeys.prePurchase">
+                {{journey}}
+                {{journey.name}}
+              </div>
+                <button mat-raised-button color="accent" (click)="openJourney(product)">
+                  Add Journey
+                </button>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="post-purchase journey">
+            <th mat-header-cell *matHeaderCellDef>Post-Purchase Journeys </th>
+            <td mat-cell *matCellDef="let product">
+              <div *ngFor="let journey of product.journeys.postPurchase">
+                {{journey.name}}
+              </div>
               <button mat-raised-button color="accent" (click)="openJourney(product)">
                 Add Journey
               </button>
-          </td>
-        </ng-container>
+            </td>
+          </ng-container> -->
+        
+          <!-- <ng-container matColumnDef="description">
+            <th mat-header-cell *matHeaderCellDef> Description </th>
+            <td mat-cell *matCellDef="let product">{{ product.description }}</td>
+          </ng-container> -->
+        
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef> Actions </th>
+            <td mat-cell *matCellDef="let product">
+              <button mat-raised-button color="primary" (click)="openProduct(product)">Edit</button>
+              <button mat-raised-button color="primary" (click)="openDeleteDialog(product)">Delete</button>
+            </td>
+          </ng-container>
 
-        <ng-container matColumnDef="post-purchase journey">
-          <th mat-header-cell *matHeaderCellDef>Post-Purchase Journeys </th>
-          <td mat-cell *matCellDef="let product">
-            <div *ngFor="let journey of product.journeys.postPurchase">
-              {{journey.name}}
-            </div>
-            <button mat-raised-button color="accent" (click)="openJourney(product)">
-              Add Journey
-            </button>
-          </td>
-        </ng-container> -->
-      
-        <!-- <ng-container matColumnDef="description">
-          <th mat-header-cell *matHeaderCellDef> Description </th>
-          <td mat-cell *matCellDef="let product">{{ product.description }}</td>
-        </ng-container> -->
-      
-        <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef> Actions </th>
-          <td mat-cell *matCellDef="let product">
-            <button mat-raised-button color="primary" (click)="openProduct(product)">Edit</button>
-            <button mat-raised-button color="primary" (click)="openDeleteDialog(product)">Delete</button>
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="qr code">
-          <th mat-header-cell *matHeaderCellDef> QR Code </th>
-          <td mat-cell *matCellDef="let journey">
-            <button mat-raised-button color="primary" (click)="openQRCodeModal(journey)">Open</button>
-          </td>
-        </ng-container>
-      
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-      </table>
-    </div>
-  </ng-container>
-</div>
+          <ng-container matColumnDef="qr code">
+            <th mat-header-cell *matHeaderCellDef> QR Code </th>
+            <td mat-cell *matCellDef="let journey">
+              <button mat-raised-button color="primary" (click)="openQRCodeModal(journey)">Open</button>
+            </td>
+          </ng-container>
+        
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+      </div>
+    </ng-container>
+  </div>
+</ng-container>

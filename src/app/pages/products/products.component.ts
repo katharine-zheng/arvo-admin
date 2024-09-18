@@ -13,14 +13,14 @@ import { ShopifyService } from '../../services/shopify.service';
   styleUrl: './products.component.css'
 })
 export class ProductsComponent {
+  public isLoading: boolean = false;
   public searchTerm: string = "";
   public importedProducts: any[] = [];
-  journeys: any = {};
-  displayedColumns: string[] = ['name', 'actions', 'qr code'];
+  public displayedColumns: string[] = ['image', 'name', 'actions', 'qr code'];
+  public view: 'grid' | 'table' = 'table';
   public products: any[] = [];
   public filteredProducts: any[] = [];
-  view: 'grid' | 'table' = 'table';
-  qrCodeElement: HTMLElement | undefined | null; // To store the reference to the QR code container
+  public qrCodeElement: HTMLElement | undefined | null; // To store the reference to the QR code container
 
   constructor(private router: Router, private dialog: MatDialog, private shopify: ShopifyService, private db: DbService) {}
 
@@ -29,8 +29,14 @@ export class ProductsComponent {
   }
 
   async getProducts() {
+    this.isLoading = true;
     this.products = await this.db.getProducts();
     this.filteredProducts = this.products;
+    this.isLoading = false;
+  }
+
+  async addWebhook(topic: string, functionName: string) {
+    await this.shopify.addWebhook(topic, functionName);
   }
 
   openProduct(product?: any) {
@@ -96,7 +102,7 @@ export class ProductsComponent {
         result['mediaList'] = [];
         result['mediaIds'] = [];
         this.products.push(result);
-        await this.db.createProduct(result);
+        this.createProduct(result);
       }
     });
   }
@@ -129,6 +135,13 @@ export class ProductsComponent {
     });
   }
 
+  async createProduct(product: any) {
+    this.isLoading = true;
+    await this.db.createProduct(product);
+    this.isLoading = false;
+  }
+
+  // note not used
   async importShopifyProducts() {
     if (this.db.account.platformStores) {
       const shopValues: any[] = Object.values(this.db.account.platformStores);
@@ -145,7 +158,9 @@ export class ProductsComponent {
   }
 
   async deleteProduct(productId: string) {
+    this.isLoading = true;
     await this.db.deleteDocument("products", productId);
     this.products = this.products.filter(product => product.id !== productId);
+    this.isLoading = false;
   }
 }
