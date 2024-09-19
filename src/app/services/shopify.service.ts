@@ -7,6 +7,7 @@ import { Functions, httpsCallable } from '@angular/fire/functions';
 })
 export class ShopifyService {
   private _products: any[] = [];
+  private _webhooks: any[] = [];
   private getShopifyProductsFn: string = 'shopifyGetProducts';
 
   constructor(private fn: Functions, private db: DbService) {}
@@ -24,9 +25,9 @@ export class ShopifyService {
     if (account) {
       const shops: any[] = Object.values(this.db.account.platformStores);
       if (shops && shops[0]) {
+        const shopId = shops[0].id;
         const shop = shops[0].subdomain;
-        const accessToken = shops[0].accessToken;
-        const params = { topic, functionName, shop, accessToken };
+        const params = { topic, functionName, shop, shopId };
         const url = httpsCallable(this.fn, "shopifyAddWebhook");
         await url(params).then((response: any) => {
         }).catch((error) => {
@@ -36,7 +37,38 @@ export class ShopifyService {
     }
   }
 
-  async getShopifyProducts(storeId: string, shop: string) {
+  async getWebhooks(shop: string, shopId: string, ) {
+    const account = this.db.account;
+    if (account) {
+      const params = { shop, shopId };
+      const url = httpsCallable(this.fn, "shopifyGetWebhooks");
+      await url(params).then((response: any) => {
+        this._webhooks = response.data;
+        return this._webhooks;
+      }).catch((error) => {
+        console.error('An error occurred getting Webhooks from Shopify');
+        console.error(error);
+      })
+      return this._webhooks;
+    }
+    return [];
+  }
+
+  async deleteWebhook(shop: string, shopId: string, webhookId: string) {
+    const account = this.db.account;
+    if (account) {
+      const params = { shop, shopId, webhookId };
+      console.log(params);
+      const url = httpsCallable(this.fn, "shopifyDeleteWebhook");
+      await url(params).then((response: any) => {
+      }).catch((error) => {
+        console.error('An error occurred getting Webhooks from Shopify');
+        console.error(error);
+      })
+    }
+  }
+
+  async getProducts(storeId: string, shop: string) {
     const account = this.db.account;
     if (account) {
       if (this._products && this._products.length > 0) {

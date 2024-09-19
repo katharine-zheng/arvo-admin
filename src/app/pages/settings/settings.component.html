@@ -16,3 +16,13 @@
   </div>
 </ng-container>
 <div id="qrCodeContainer"></div>
+
+<h3>Shopify webhooks</h3>
+<div *ngFor="let webhook of webhooks">
+  <button (click)="addWebhook(webhook.topic)">Add {{webhook.topic}}</button>
+</div>
+<br/>
+<!-- <h3>Shop webhooks</h3>
+<div *ngFor="let webhook of accountWebhooks">
+  <button (click)="deleteWebhook(webhook.id)">Delete {{webhook.topic}}</button>
+</div> -->

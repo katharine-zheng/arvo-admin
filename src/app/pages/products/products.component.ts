@@ -35,10 +35,6 @@ export class ProductsComponent {
     this.isLoading = false;
   }
 
-  async addWebhook(topic: string, functionName: string) {
-    await this.shopify.addWebhook(topic, functionName);
-  }
-
   openProduct(product?: any) {
     if (product) {
       this.db.setProductData(product);
@@ -150,7 +146,7 @@ export class ProductsComponent {
       } else if (shopValues.length === 1 && shopValues[0]) {
         const shop = shopValues[0].subdomain;
         const id = shopValues[0].id;
-        this.importedProducts = await this.shopify.getShopifyProducts(id, shop);
+        this.importedProducts = await this.shopify.getProducts(id, shop);
       } else {
         // NOTE only supports one shopify store
       }
