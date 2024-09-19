@@ -573,7 +573,7 @@ export const onProductsUpdate = onRequest(
           res.status(404).send(`Product ${productId} not found`);
           return;
         }
-        const storeRef = snapshot.docs[0].ref;
+
         const productData = {
           description: product.body_html,
           price: product.variants[0].price,
@@ -589,7 +589,7 @@ export const onProductsUpdate = onRequest(
           updateTime: admin.firestore.FieldValue.serverTimestamp(),
         };
 
-        await storeRef.update(productData);
+        await snapshot.docs[0].ref.update(productData);
         res.status(200).send(`Product ${productId} updated.`);
       } catch (error) {
         console.error("Error updating product:", error);
@@ -635,17 +635,7 @@ export const onProductsDelete = onRequest(
           return;
         }
 
-        const productDoc = snapshot.docs[0];
-        if (!productDoc) {
-          logger.error(`No document found for productId: ${productId}`);
-          res.status(404).send(`No document found for productId: ${productId}`);
-          return;
-        }
-
-        logger.info(`productId: ${productId}`);
-        logger.info(`length: ${snapshot.docs.length}`);
-        const productRef = snapshot.docs[0].ref;
-        await productRef.delete();
+        await snapshot.docs[0].ref.delete();
         res.status(200).send(`Product ${productId} deleted.`);
       } catch (error) {
         logger.error("Error deleting product:", error);
