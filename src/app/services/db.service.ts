@@ -401,22 +401,6 @@ export class DbService {
     });
   }
 
-  async addMediaToProduct(productId: string, media: any[]) {
-    // Reference the journey document
-    const productRef = doc(this.firestore, `products/${productId}`);
-    const mediaIds = media.map((media: any) => media.id);
-
-    try {
-      // Update the journey document by adding the selected media to the 'mediaList' array
-      await updateDoc(productRef, {
-        mediaList: arrayUnion(...media),
-        mediaIds: mediaIds,
-      });
-    } catch (error) {
-      console.error('Error adding media to the journey:', error);
-    }
-  }
-
   async addTagToMedia(tag: string, media: any) {
     const mediaId = media.id;
     const mediaDocRef = doc(this.firestore, `media/${mediaId}`);
@@ -447,6 +431,95 @@ export class DbService {
       await updateDoc(productRef, {
         mediaList: updatedMediaList
       });
+
+      // Update the journey with the modified mediaList
+      const journeyRef = doc(this.firestore, `journeys/${productDoc.id}`);
+      await updateDoc(journeyRef, {
+        mediaList: updatedMediaList
+      });
+    });
+
+    const journeysRef = collection(this.firestore, 'journeys');
+    const journeyQuery = query(journeysRef, where('mediaIds', 'array-contains', mediaId));
+    const journeySnapshots = await getDocs(journeyQuery);
+
+    journeySnapshots.forEach(async (journeyDoc) => {
+      const journeyData = journeyDoc.data();
+      
+      // Map over mediaList to find the media item and use arrayUnion to add the new tag
+      const updatedMediaList = journeyData['mediaList'].map((media: any) => {
+        if (media.id === mediaId) {
+          return {
+            ...media,
+            tags: [...media.tags, tag]
+          };
+        }
+        return media;
+      });
+
+      // Update the journey with the modified mediaList
+      const journeyRef = doc(this.firestore, `journeys/${journeyDoc.id}`);
+      await updateDoc(journeyRef, {
+        mediaList: updatedMediaList
+      });
+    });
+  }
+
+  async removeTagFromMedia(tag: string, media: any): Promise<void> {
+    const mediaId = media.id;
+    const mediaDocRef = doc(this.firestore, `media/${mediaId}`);
+    await updateDoc(mediaDocRef, {
+      tags: arrayRemove(tag),
+    });
+
+    // Query all products where the mediaId exists in the mediaIds array
+    const productsRef = collection(this.firestore, 'products');
+    const productQuery = query(productsRef, where('mediaIds', 'array-contains', mediaId));
+    const productSnapshots = await getDocs(productQuery);
+    
+    productSnapshots.forEach(async (productDoc) => {
+      const productData = productDoc.data();
+      
+      // Map over mediaList to find the media item and use arrayRemove to remove the tag
+      const updatedMediaList = productData['mediaList'].map((media: any) => {
+        if (media.id === mediaId) {
+          return {
+            ...media,
+            tags: media.tags.filter((t: string) => t !== tag)
+          };
+        }
+        return media;
+      });
+  
+      // Update the product with the modified mediaList
+      const productRef = doc(this.firestore, `products/${productDoc.id}`);
+      await updateDoc(productRef, {
+        mediaList: updatedMediaList
+      });
+    });
+
+    const journeysRef = collection(this.firestore, 'journeys');
+    const journeyQuery = query(journeysRef, where('mediaIds', 'array-contains', mediaId));
+    const journeySnapshots = await getDocs(journeyQuery);
+    journeySnapshots.forEach(async (journeyDoc) => {
+      const journeyData = journeyDoc.data();
+      
+      // Map over mediaList to find the media item and use arrayRemove to remove the tag
+      const updatedMediaList = journeyData['mediaList'].map((media: any) => {
+        if (media.id === mediaId) {
+          return {
+            ...media,
+            tags: media.tags.filter((t: string) => t !== tag)
+          };
+        }
+        return media;
+      });
+  
+      // Update the journey with the modified mediaList
+      const journeyRef = doc(this.firestore, `journeys/${journeyDoc.id}`);
+      await updateDoc(journeyRef, {
+        mediaList: updatedMediaList
+      });
     });
   }
 
@@ -471,38 +544,32 @@ export class DbService {
     this._mediaTags = this._mediaTags.filter((t: string) => t !== tag);
   }
 
-  async removeTagFromMedia(tag: string, media: any): Promise<void> {
-    const mediaId = media.id;
-    const mediaDocRef = doc(this.firestore, `media/${mediaId}`);
-    await updateDoc(mediaDocRef, {
-      tags: arrayRemove(tag),
-    });
+  async addMediaToProduct(productId: string, media: any[]) {
+    const productRef = doc(this.firestore, `products/${productId}`);
+    const mediaIds = media.map((media: any) => media.id);
 
-    const productsRef = collection(this.firestore, 'products');
-    // Query all products where the mediaId exists in the mediaIds array
-    const productQuery = query(productsRef, where('mediaIds', 'array-contains', mediaId));
-    const productSnapshots = await getDocs(productQuery);
-    
-    productSnapshots.forEach(async (productDoc) => {
-      const productData = productDoc.data();
-      
-      // Map over mediaList to find the media item and use arrayRemove to remove the tag
-      const updatedMediaList = productData['mediaList'].map((media: any) => {
-        if (media.id === mediaId) {
-          return {
-            ...media,
-            tags: media.tags.filter((t: string) => t !== tag)
-          };
-        }
-        return media;
-      });
-  
-      // Update the product with the modified mediaList
-      const productRef = doc(this.firestore, `products/${productDoc.id}`);
+    try {
       await updateDoc(productRef, {
-        mediaList: updatedMediaList
+        mediaList: arrayUnion(...media),
+        mediaIds: mediaIds,
       });
-    });
+    } catch (error) {
+      console.error('Error adding media to the journey:', error);
+    }
+  }
+
+  async addMediaToJourney(journeyId: string, media: any[]) {
+    const journeyRef = doc(this.firestore, `journeys/${journeyId}`);
+    const mediaIds = media.map((media: any) => media.id);
+
+    try {
+      await updateDoc(journeyRef, {
+        mediaList: arrayUnion(...media),
+        mediaIds: mediaIds,
+      });
+    } catch (error) {
+      console.error('Error adding media to the journey:', error);
+    }
   }
 
   private setNewAccount(fbUser: User): any {

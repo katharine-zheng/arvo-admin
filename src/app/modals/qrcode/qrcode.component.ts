@@ -19,19 +19,19 @@ export class QRCodeComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    // const data = `https://yourdomain.com/journeys/${product.id}`; // Replace with your product URL or data
+    let data = "";
+    if (this.data.product) {
+      this.name = this.data.product.name;
+      data = `https://arvo-prod.web.app/p/${this.data.product.id}`;
+    } else if (this.data.journey) {
+      this.name = this.data.journey.name;
+    }
     // const logoUrl = 'https://yourdomain.com/assets/logo.png'; // Replace with your logo URL
-    const data = "https://stance-live-admin.web.app/login";
     const logoUrl = "";
     if (this.qrCodeElement) {
       this.qrCodeElement.innerHTML = "";
     }
 
-    if (this.data.product) {
-      this.name = this.data.product.name;
-    } else if (this.data.journey) {
-      this.name = this.data.journey.name;
-    }
     this.qrCodeElement = document.getElementById('qrCodeContainer'); // Get the container where the QR code will be rendered
     this.qrCodeService.generateQRCode(this.data.qrCodeSettings, data, logoUrl, this.qrCodeElement!);
   }
