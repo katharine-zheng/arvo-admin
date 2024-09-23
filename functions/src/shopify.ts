@@ -1,5 +1,6 @@
 import {HttpsError, onRequest} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
+import * as dialogflowFn from "./dialogflow";
 import * as logger from "firebase-functions/logger";
 import axios from "axios";
 import crypto = require("crypto");
@@ -529,6 +530,7 @@ export const onProductsCreate = onRequest(
         };
 
         await productRef.set(productData);
+        await dialogflowFn.updateDialogflowEntities([product]);
         res.status(200).send(`Product ${productId} updated.`);
       } catch (error) {
         console.error("Error updating product:", error);
@@ -590,6 +592,7 @@ export const onProductsUpdate = onRequest(
         };
 
         await snapshot.docs[0].ref.update(productData);
+        await dialogflowFn.updateDialogflowEntities([product]);
         res.status(200).send(`Product ${productId} updated.`);
       } catch (error) {
         console.error("Error updating product:", error);
@@ -597,7 +600,7 @@ export const onProductsUpdate = onRequest(
       }
 
       // Respond with success
-      res.status(200).send("Uninstall webhook handled");
+      res.status(200).send("Webhook handled");
     });
   });
 
