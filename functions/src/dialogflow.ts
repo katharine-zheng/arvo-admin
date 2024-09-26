@@ -48,9 +48,6 @@ export const dialogflowChat = onCall(
       const [response] = await sessionClient.detectIntent(dialogflowRequest);
       const queryResult = response.queryResult;
 
-      // Log the full query result for debugging
-      logger.log("Query Result:", JSON.stringify(queryResult, null, 2));
-
       // Return the fulfillment text from the response
       return {
         fulfillmentText: queryResult?.responseMessages![0]?.text?.text![0] ||
@@ -71,20 +68,21 @@ export const dialogflowChat = onCall(
 //   const parent = agentPath;
 
 //   const [entityTypes] = await dialogflowClient.listEntityTypes({parent});
-//   logger.log("Entity types:");
 //   entityTypes.forEach((entityType) => {
-//     logger.log(`${entityType.displayName} - ${entityType.name}`);
 //   });
 // }
 
 /**
- * Firebase Cloud Function triggered by Shopify webhook
- * (e.g., products/update)
+ * updateDialogflowEntities
+ * @param {string} domain - shop domain
  * @param {any} products - shopify product
  */
-export async function updateDialogflowEntities(products: any) {
+export async function updateDialogflowEntities(domain: string, products: any) {
   if (!products || products.length === 0) {
-    logger.error("Product data missing");
+    logger.error("updateDialogflowEntities: products missing");
+    return;
+  } else if (!domain) {
+    logger.error("updateDialogflowEntities: domain missing");
     return;
   }
 
@@ -138,11 +136,11 @@ export async function updateDialogflowEntities(products: any) {
 
   try {
     // Process each entity and update usage counts
-    await processEntities(productCounts, "Product");
-    await processEntities(brandCounts, "Brand");
-    await processEntities(productTypeCounts, "ProductType");
-    await processEntities(productOptionCounts, "ProductOptions");
-    await processEntities(productVariantCounts, "ProductVariants");
+    await processEntities(domain, productCounts, "Product");
+    await processEntities(domain, brandCounts, "Brand");
+    await processEntities(domain, productTypeCounts, "ProductType");
+    await processEntities(domain, productOptionCounts, "ProductOptions");
+    await processEntities(domain, productVariantCounts, "ProductVariants");
 
     // Update or create necessary entity types in Dialogflow
     await createOrUpdateEntityType("Product",
@@ -174,25 +172,27 @@ function mapEntitiesToDialogflowFormat(entities: string[]): any[] {
 }
 
 /**
+ * @param {string} domain
  * @param {any} entityCounts
  * @param {string} entityType
  */
-async function processEntities(entityCounts: any, entityType: string) {
+async function processEntities(
+  domain: string, entityCounts: any, entityType: string) {
   for (const [entityValue, count] of Object.entries(entityCounts)) {
-    logger.info(`processEntities: ${entityType}-${entityValue}: ${count}`);
-    await incrementEntityUsage(entityType, entityValue, count as number);
+    await incrementEntityUsage(
+      domain, entityType, entityValue, count as number);
   }
 }
 
 /**
- * Helper function to check if there are other products using the same entity
- * (e.g., brand, product type, option)
+ * incrementEntityUsage - does not include dialogflow entity updates
+ * @param {any[]} domain shop domain
  * @param {string} entityType - entityTypeId
  * @param {string} entityValue - entityValue
  * @param {number} incrementBy - incrementBy
  */
 async function incrementEntityUsage(
-  entityType: string, entityValue: string, incrementBy = 1) {
+  domain: string, entityType: string, entityValue: string, incrementBy = 1) {
   const entityRef = db.collection("dialogflowEntity")
     .doc(`${entityType}-${entityValue}`);
 
@@ -201,24 +201,24 @@ async function incrementEntityUsage(
 
     if (!entityDoc.exists) {
       // Create a new entity usage document with the initial usage count
-      logger.log(`${entityType}-${entityValue} created: ${incrementBy}.`);
       transaction.set(entityRef, {
         entityType: entityType,
         entityValue: entityValue,
         usageCount: incrementBy,
+        shopDomains: [domain],
       });
     } else {
       const usageData = entityDoc.data();
       const currentUsageCount = usageData?.usageCount || 0;
       const newUsageCount = currentUsageCount + incrementBy;
-
-      // Log the current and new usage count
-      logger.log(`Entity ${entityValue} exists.
-        Current usageCount = ${currentUsageCount}.
-        Incrementing by ${incrementBy} to ${newUsageCount}.`);
+      const updatedShopDomains = usageData?.shopDomains || [];
+      if (!updatedShopDomains.includes(domain)) {
+        updatedShopDomains.push(domain);
+      }
 
       transaction.update(entityRef, {
         usageCount: newUsageCount,
+        shopDomains: updatedShopDomains,
       });
     }
   });
@@ -296,7 +296,6 @@ async function createEntityType(displayName: string) {
     },
   });
 
-  logger.log(`createEntityType ${displayName}-${createdEntityType.name}`);
   return createdEntityType.name;
 }
 
@@ -336,29 +335,23 @@ function mergeEntities(existingEntities: any[], newEntities: any[]): any[] {
  * @param {any[]} oldProduct - oldProduct
  */
 export async function compareEntities(newProduct: any, oldProduct: any) {
-  // Compare old and new product data
-  // const newProduct = {
-  //   title: product.title,
-  //   vendor: product.vendor,
-  //   productType: product.product_type,
-  //   options: product.options,
-  //   variants: product.variants,
-  // };
-
   // Check if title has changed
+  const domain = newProduct.shopDomain;
   if (oldProduct.title !== newProduct.title) {
-    await handleEntityUpdate("Product", oldProduct.title, newProduct.title);
+    await handleEntityUpdate(
+      domain, "Product", oldProduct.title, newProduct.title);
   }
 
   // Check if vendor (brand) has changed
   if (oldProduct.vendor !== newProduct.vendor) {
-    await handleEntityUpdate("Brand", oldProduct.vendor, newProduct.vendor);
+    await handleEntityUpdate(
+      domain, "Brand", oldProduct.vendor, newProduct.vendor);
   }
 
   // Check if product type has changed
   if (oldProduct.productType !== newProduct.productType) {
     await handleEntityUpdate(
-      "ProductType", oldProduct.productType, newProduct.productType);
+      domain, "ProductType", oldProduct.productType, newProduct.productType);
   }
 
   // Check if options have changed
@@ -369,7 +362,7 @@ export async function compareEntities(newProduct: any, oldProduct: any) {
 
   if (oldOptions !== newOptions) {
     // Handle options removal and increment new options
-    await handleOptionsUpdate(oldProduct.options, newProduct.options);
+    await handleOptionsUpdate(domain, oldProduct.options, newProduct.options);
   }
 
   // Check if variants have changed
@@ -379,74 +372,92 @@ export async function compareEntities(newProduct: any, oldProduct: any) {
     .map((variant: any) => variant.title).join(",");
 
   if (oldVariants !== newVariants) {
-    await handleVariantsUpdate(oldProduct.variants, newProduct.variants);
+    await handleVariantsUpdate(
+      domain, oldProduct.variants, newProduct.variants);
   }
 }
 
 /**
  * Helper function decrements or removes
  * the old entity and increments or adds the new entity.
+ * @param {string} domain shop domain
  * @param {string} entityType entityType
  * @param {string} oldValue oldValue
  * @param {string} newValue newValue
  */
 async function handleEntityUpdate(
-  entityType: string, oldValue: string, newValue: string) {
+  domain: string, entityType: string, oldValue: string, newValue: string) {
   if (oldValue && oldValue !== newValue) {
     // Decrement the old entity
-    await decrementEntityUsage(entityType, oldValue, 1);
+    await decrementEntityUsage(domain, entityType, oldValue, 1);
   }
 
   if (newValue && oldValue !== newValue) {
     // Increment the new entity
-    await incrementEntityUsage(entityType, newValue);
+    await incrementEntityUsage(domain, entityType, newValue, 1);
+    await createOrUpdateEntityType(entityType, [{
+      value: newValue,
+      synonyms: [newValue],
+    }]);
   }
 }
 
 /**
- * Helper function to handleOptionsUpdate
+ * handleOptionsUpdate
+ * @param {any[]} domain shop domain
  * @param {any[]} oldOptions oldOptions
  * @param {any[]} newOptions newOptions
  */
-async function handleOptionsUpdate(oldOptions: any[], newOptions: any[]) {
+async function handleOptionsUpdate(
+  domain: string, oldOptions: any[], newOptions: any[]) {
   const oldOptionNames = oldOptions.map((option) => option.name);
   const newOptionNames = newOptions.map((option) => option.name);
 
   // Decrement removed options
   for (const oldOption of oldOptionNames) {
     if (!newOptionNames.includes(oldOption)) {
-      await decrementEntityUsage("ProductOptions", oldOption, 1);
+      await decrementEntityUsage(domain, "ProductOptions", oldOption, 1);
     }
   }
 
   // Increment added options
   for (const newOption of newOptionNames) {
     if (!oldOptionNames.includes(newOption)) {
-      await incrementEntityUsage("ProductOptions", newOption);
+      await incrementEntityUsage(domain, "ProductOptions", newOption);
+      await createOrUpdateEntityType("ProductOptions", [{
+        value: newOption,
+        synonyms: [newOption],
+      }]);
     }
   }
 }
 
 /**
- * Helper function to handleVariantsUpdate
+ * handleVariantsUpdate
+ * @param {any[]} domain shop domain
  * @param {any[]} oldVariants oldVariants
  * @param {any[]} newVariants newVariants
  */
-async function handleVariantsUpdate(oldVariants: any[], newVariants: any[]) {
+async function handleVariantsUpdate(
+  domain: string, oldVariants: any[], newVariants: any[]) {
   const oldVariantTitles = oldVariants.map((variant) => variant.title);
   const newVariantTitles = newVariants.map((variant) => variant.title);
 
   // Decrement removed variants
   for (const oldVariant of oldVariantTitles) {
     if (!newVariantTitles.includes(oldVariant)) {
-      await decrementEntityUsage("ProductVariant", oldVariant, 1);
+      await decrementEntityUsage(domain, "ProductVariants", oldVariant, 1);
     }
   }
 
   // Increment added variants
   for (const newVariant of newVariantTitles) {
     if (!oldVariantTitles.includes(newVariant)) {
-      await incrementEntityUsage("ProductVariant", newVariant);
+      await incrementEntityUsage(domain, "ProductVariants", newVariant);
+      await createOrUpdateEntityType("ProductVariants", [{
+        value: newVariant,
+        synonyms: [newVariant],
+      }]);
     }
   }
 }
@@ -463,13 +474,13 @@ export async function cleanUpEntities(productList: any[]) {
   const productOptions = new Map<string, number>();
   const productVariants = new Map<string, number>();
 
-  logger.log("cleanUpEntities");
-  if (productList.length === 1) {
-    logger.log(productList[0]);
+  if (!productList || productList.length === 0) {
+    logger.warn("cleanUpEntities: nothing to clean up");
   }
 
+  const domain = productList[0].shopDomain;
+
   productList.forEach((product) => {
-    logger.log("vendor: " + product.vendor);
     // Track product title and increment count
     const productTitle = product.title;
     products.set(productTitle,
@@ -510,43 +521,37 @@ export async function cleanUpEntities(productList: any[]) {
   });
 
   for (const [productTitle, count] of products.entries()) {
-    await decrementEntityUsage("Product", productTitle, count);
+    await decrementEntityUsage(domain, "Product", productTitle, count);
   }
 
   for (const [variantTitle, count] of productVariants.entries()) {
-    await decrementEntityUsage("ProductVariants", variantTitle, count);
+    await decrementEntityUsage(domain, "ProductVariants", variantTitle, count);
   }
 
-  logger.log("BRANDS");
-  logger.log(brands);
   for (const [brand, count] of brands.entries()) {
-    logger.log(`for brand: ${brand}-${count}`);
-    await decrementEntityUsage("Brand", brand, count);
+    await decrementEntityUsage(domain, "Brand", brand, count);
   }
 
   for (const [productType, count] of productTypes.entries()) {
-    await decrementEntityUsage("ProductType", productType, count);
+    await decrementEntityUsage(domain, "ProductType", productType, count);
   }
 
   for (const [option, count] of productOptions.entries()) {
-    await decrementEntityUsage("ProductOptions", option, count);
+    await decrementEntityUsage(domain, "ProductOptions", option, count);
   }
 }
 
 /**
- * Helper function to check if there are other products using the same entity
- * (e.g., brand, product type, option)
+ * decrementEntityUsage - includes dialogflow update
+ * @param {string} domain - shop domain
  * @param {string} entityType - entityTypeId
  * @param {string} entityValue - entityValue
  * @param {number} decrementBy - entityValue
  */
-async function decrementEntityUsage(
+async function decrementEntityUsage(domain: string,
   entityType: string, entityValue: string, decrementBy: number) {
   const entityRef = db.collection("dialogflowEntity")
     .doc(`${entityType}-${entityValue}`);
-
-  logger.log(`decrementEntityUsage: ${entityType}-${entityValue}
-    by ${decrementBy}`);
 
   await db.runTransaction(async (transaction) => {
     const entityDoc = await transaction.get(entityRef);
@@ -559,18 +564,21 @@ async function decrementEntityUsage(
     const usageData = entityDoc.data();
     const currentUsageCount = usageData?.usageCount || 0;
     const newUsageCount = currentUsageCount - decrementBy;
+    let updatedShopDomains = usageData?.shopDomains || [];
+    updatedShopDomains = updatedShopDomains.filter((d: string) => d !== domain);
 
-    if (newUsageCount <= 0) {
+    if (newUsageCount <= 0 && updatedShopDomains.length === 0) {
       // If usage reaches zero or below, remove the entity
-      logger.log(`Removing entity ${entityType}-${entityValue}`);
       transaction.delete(entityRef);
 
       // Remove from Dialogflow
       await removeEntityFromDialogflow(entityType, entityValue);
     } else {
       // Otherwise, update the usage count
-      logger.log(`Reducing entity count ${entityType}-${entityValue}`);
-      transaction.update(entityRef, {usageCount: newUsageCount});
+      transaction.update(entityRef, {
+        usageCount: newUsageCount,
+        shopDomains: updatedShopDomains,
+      });
     }
   });
 }
@@ -587,7 +595,7 @@ async function removeEntityFromDialogflow(
   const entityTypeId = await getEntityTypeIdByDisplayName(entityType);
 
   if (!entityTypeId) {
-    console.log(`EntityType ${entityType} not in Dialogflow.`);
+    logger.warn(`EntityType ${entityType} not in Dialogflow.`);
     return;
   }
 
@@ -621,7 +629,6 @@ async function removeEntityFromDialogflow(
   };
 
   // Apply the update to Dialogflow
-  // logger.log(`Removed ${entityValue} from Dialogflow ${entityType}.`);
   await dialogflowClient.updateEntityType(request);
 }
 

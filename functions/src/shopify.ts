@@ -1,4 +1,5 @@
-import {HttpsError, onRequest} from "firebase-functions/v2/https";
+import {CallableRequest, HttpsError, onCall, onRequest}
+  from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
 import * as dialogflowFn from "./dialogflow";
 import * as logger from "firebase-functions/logger";
@@ -123,7 +124,7 @@ export const authCallback = onRequest(
       await storeInitialData(state.toString(), accessToken, {
         shop: shopData, products, webhooks,
       });
-      await dialogflowFn.updateDialogflowEntities(products);
+      await dialogflowFn.updateDialogflowEntities(domain, products);
       // todo update
       const redirectUrl = "https://arvo-prod.web.app/dashboard";
 
@@ -200,7 +201,6 @@ Promise<any> {
  */
 export async function fetchWebhooks(domain: string, accessToken: string):
 Promise<any> {
-  // logger.log(`shop: ${shop}, type: ${type}, token: ${accessToken}`);
   const headers = {
     headers: {
       "Content-Type": "application/json",
@@ -248,12 +248,12 @@ export async function storeInitialData(accountId: string,
           updateTime,
           type: "shopify",
           shop: shop,
-          id: shopId,
-          subdomain: domain,
+          shopId: shopId,
+          shopDomain: domain,
         },
         updateTime,
       });
-      logger.log(`storeInitialData: access token saved for account: ${doc.id}`);
+      logger.info(`storeInitialData: access token saved for account: ${doc.id}`);
     } else {
       logger.error(`storeInitialData: account not found: ${accountId}`);
       return false;
@@ -264,13 +264,14 @@ export async function storeInitialData(accountId: string,
       accountId,
       accessToken,
       updateTime,
-      id: shopId,
-      subdomain: domain,
+      id: storeRef.id,
+      shopId: shopId,
+      shopDomain: domain,
       shop: shop,
       type: "shopify",
       webhooks,
     });
-    logger.log("Access token saved for platform store");
+    logger.info("Access token saved for platform store");
 
     if (products && products.length > 0) {
       products.forEach((product: any) => {
@@ -368,7 +369,7 @@ function verifyWebhook(req: any, secret: string): boolean {
 /**
  * Retrieves the access token for the specified shop.
  * @param {string} shopId - store id
- * @param {string} domain - store subdomain
+ * @param {string} domain - shop domain
  * @return {Promise<any>} A promise that resolves to the access token.
  */
 export async function getAccessToken(shopId: any, domain: any):
@@ -392,12 +393,12 @@ export async function getAccessToken(shopId: any, domain: any):
 
     if (domain && domain.length > 0) {
       storeSnapshot = await db.collection("platformStores")
-        .where("subdomain", "==", domain)
+        .where("shopDomain", "==", domain)
         .limit(1)
         .get();
 
       if (storeSnapshot.empty) {
-        logger.log(`getAccessToken: Store not found: ${domain} - ${shopId}`);
+        logger.error(`getAccessToken: Store not found: ${domain} - ${shopId}`);
         return null;
       } else {
         const data = storeSnapshot.docs[0].data();
@@ -408,6 +409,122 @@ export async function getAccessToken(shopId: any, domain: any):
     logger.error("getAccessToken: ", error);
     throw new HttpsError("internal", "Error occurred");
   }
+}
+
+// called from admin app
+export const uninstallApp = onCall(
+  async (request: CallableRequest<any>) => {
+    const {accountId, shopDomain, shopId} = request.data;
+
+    if (!accountId || !shopDomain || !shopId) {
+      logger.error(`Missing: ${accountId} - ${shopDomain} - ${shopId}`);
+      return;
+    }
+
+    try {
+      // Get the Shopify access token from Firestore
+      const storeSnapshot = await db.collection("platformStores")
+        .where("id", "==", shopId)
+        .limit(1)
+        .get();
+
+      if (storeSnapshot.empty) {
+        logger.error("not-found", "Shop not found.");
+        return;
+      }
+
+      const shopData = storeSnapshot.docs[0].data();
+      if (!shopData) {
+        logger.error("Shop data doesn't exist");
+        return;
+      }
+
+      const accessToken = shopData.accessToken;
+
+      if (!accessToken) {
+        logger.error("not-found", "Access token not found for the shop.");
+      }
+
+      // Shopify API endpoint to revoke the access token
+      const revokeUrl = `https://${shopDomain}/admin/api_permissions/current.json`;
+
+      // Make a DELETE request to revoke the access token
+      const response = await axios.delete(revokeUrl, {
+        headers: {
+          "X-Shopify-Access-Token": accessToken,
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+      });
+
+      // If the request is successful, handle the app's internal cleanup
+      if (response.status === 200) {
+        // Perform cleanup tasks like removing the store from Firestore
+        await removeStoreData(accountId, shopId, shopDomain);
+        logger.info(`App uninstalled successfully for ${shopDomain}`);
+      } else {
+        logger.error("internal", "Failed to uninstall the app.");
+      }
+    } catch (error) {
+      console.error("Error uninstalling app:", error);
+      logger.error("internal", "Error uninstalling the app.");
+    }
+  });
+
+/**
+ * removeStoreData
+ * @param {string} accountId accountId
+ * @param {string} shopId shopId
+ * @param {string} domain shopify domain
+ * @return {Promise<any>}
+ */
+async function removeStoreData(
+  accountId: string, shopId: string, domain: string): Promise<any> {
+  try {
+    const batch = db.batch();
+    const accountRef = admin.firestore().collection("accounts").doc(accountId);
+
+    batch.update(accountRef, {[`platformStores.${shopId}`]:
+      admin.firestore.FieldValue.delete(),
+    });
+
+    const productsSnapshot = await db.collection("products")
+      .where("shopDomain", "==", domain)
+      .get();
+
+    if (productsSnapshot.empty) {
+      logger.info(`No products found for shopId: ${shopId}`);
+    } else {
+      const productsList: any[] = [];
+
+      productsSnapshot.forEach((doc) => {
+        productsList.push(doc.data());
+        batch.delete(doc.ref);
+      });
+
+      await dialogflowFn.cleanUpEntities(productsList);
+    }
+
+    const storeSnapshot = await db.collection("platformStores")
+      .where("id", "==", shopId)
+      .limit(1)
+      .get();
+
+    if (storeSnapshot.empty) {
+      logger.info(`Store not found: ${shopId}`);
+    } else {
+      logger.info(`Store ${shopId} removed`);
+      batch.delete(storeSnapshot.docs[0].ref);
+    }
+
+    await batch.commit();
+    logger.info(`removeStoreData: Db update for ${domain} done.`);
+  } catch (error) {
+    logger.error(`Error deleting store data for ${domain}:`, error);
+    return;
+  }
+
+  // TODO logic for canceling subscription
 }
 
 export const onAppUninstall = onRequest(
@@ -427,60 +544,18 @@ export const onAppUninstall = onRequest(
 
       const domain = req.body.myshopify_domain;
       const shopId = req.body.id;
+
       try {
-        const accountId = await getAccountIdByShopId(shopId);
-        if (!accountId) {
-          logger.error(`onAppUninstall: Account not found for ${domain}`);
-          res.status(404).send("Account not found");
-          return;
-        }
-
-        const batch = db.batch();
-        const accountRef = admin.firestore().collection("accounts")
-          .doc(accountId.toString());
-
-        batch.update(accountRef, {[`platformStores.${shopId}`]:
-          admin.firestore.FieldValue.delete(),
+        const storeRef = db.collection("_shopifyDeletion")
+          .doc(`${shopId}-${domain}`);
+        await storeRef.set({
+          shopDomain: domain,
+          shopId,
         });
-
-        const productsSnapshot = await db.collection("products")
-          .where("shopDomain", "==", domain)
-          .get();
-
-        if (productsSnapshot.empty) {
-          logger.log(`No products found for shopId: ${shopId}`);
-        } else {
-          const productsList: any[] = [];
-
-          productsSnapshot.forEach((doc) => {
-            productsList.push(doc.data());
-            batch.delete(doc.ref);
-          });
-
-          await dialogflowFn.cleanUpEntities(productsList);
-        }
-
-        const storeSnapshot = await db.collection("platformStores")
-          .where("id", "==", shopId)
-          .limit(1)
-          .get();
-
-        if (storeSnapshot.empty) {
-          logger.log(`Store not found: ${shopId}`);
-        } else {
-          logger.log(`Store ${shopId} removed`);
-          batch.delete(storeSnapshot.docs[0].ref);
-        }
-
-        await batch.commit();
-        logger.info(`onAppUninstall: Db update for ${domain} done.`);
       } catch (error) {
-        logger.error(`Error deleting store data for ${domain}:`, error);
-        res.status(500).send("Error cleaning up store data");
+        logger.error(`onAppUninstall: ${domain}:`, error);
         return;
       }
-
-      // TODO logic for canceling subscription
 
       // Respond with success
       logger.info(`onAppUninstall: completed - ${domain}`);
@@ -488,30 +563,29 @@ export const onAppUninstall = onRequest(
     });
   });
 
-/**
- * registeres the shopify webhook for uninstallation
- * @param {string} shopId - shopify shopId
- * @return {any} accountId or null
- */
-async function getAccountIdByShopId(shopId: string): Promise<any> {
-  try {
-    const accountsRef = db.collection("accounts");
-    const querySnapshot = await accountsRef
-      .where(`platformStores.${shopId}`, "!=", null)
-      .limit(1)
-      .get();
+// /**
+//  * registeres the shopify webhook for uninstallation
+//  * @param {string} shopId - shopify shopId
+//  * @return {any} accountId or null
+//  */
+// async function getAccountIdByShopId(shopId: string): Promise<any> {
+//   try {
+//     const accountsRef = db.collection("accounts");
+//     const querySnapshot = await accountsRef
+//       .where(`platformStores.${shopId}`, "!=", null)
+//       .limit(1)
+//       .get();
 
-    if (querySnapshot.empty) {
-      logger.error("getAccountIdByShopId: account not found. shopId:", shopId);
-      return null;
-    }
-    logger.log(`***getAccountIdByShopId: done: ${querySnapshot.docs[0].id}`);
-    return querySnapshot.docs[0].id;
-  } catch (error) {
-    logger.error(`Error in getAccountIdByShop: ${error}`);
-    return null;
-  }
-}
+//     if (querySnapshot.empty) {
+//       logger.error(`getAccountIdByShopId: account not found ${shopId}`);
+//       return null;
+//     }
+//     return querySnapshot.docs[0].id;
+//   } catch (error) {
+//     logger.error(`Error in getAccountIdByShop: ${error}`);
+//     return null;
+//   }
+// }
 
 export const onProductsCreate = onRequest(
   {secrets: [shopifyApiSecret]},
@@ -532,7 +606,10 @@ export const onProductsCreate = onRequest(
       const productId = product.id;
       const shopDomain = req.get("X-Shopify-Shop-Domain");
       if (!productId) {
-        res.status(400).send("Product ID is missing");
+        logger.error("Product ID is missing");
+        return;
+      } else if (!shopDomain) {
+        logger.error("shopDomain is missing");
         return;
       }
 
@@ -567,7 +644,7 @@ export const onProductsCreate = onRequest(
         };
 
         await productRef.set(productData);
-        await dialogflowFn.updateDialogflowEntities([productData]);
+        await dialogflowFn.updateDialogflowEntities(shopDomain, [productData]);
         res.status(200).send(`Product ${productId} updated.`);
       } catch (error) {
         console.error("Error updating product:", error);
@@ -596,8 +673,12 @@ export const onProductsUpdate = onRequest(
 
       const product = req.body;
       const productId = product.id;
+      const shopDomain = req.get("X-Shopify-Shop-Domain");
       if (!productId) {
-        res.status(400).send("Product ID is missing");
+        logger.error("Product ID is missing");
+        return;
+      } else if (!shopDomain) {
+        logger.error("shopDomain is missing");
         return;
       }
 
@@ -625,14 +706,19 @@ export const onProductsUpdate = onRequest(
           tags: product.tags,
           title: product.title,
           name: product.title,
-          type: product.product_type,
+          productType: product.product_type,
           variants: product.variants,
           vendor: product.vendor,
           updateTime: admin.firestore.FieldValue.serverTimestamp(),
         };
 
         const oldProduct = productDoc.data();
-        await dialogflowFn.compareEntities(productData, oldProduct);
+        if (oldProduct) {
+          await dialogflowFn.compareEntities(productData, oldProduct);
+        } else {
+          await dialogflowFn.updateDialogflowEntities(
+            shopDomain, [productData]);
+        }
         await productDoc.ref.update(productData);
         res.status(200).send(`Product ${productId} updated.`);
       } catch (error) {

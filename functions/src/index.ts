@@ -137,6 +137,7 @@ export const shopifyInitAuth = onRequest(shopify.initAuth);
 export const shopifyAuthCallback = onRequest(shopify.authCallback);
 export const shopifyDeleteWebhook = onRequest(shopify.deleteWebhook);
 export const shopifyGetWebhooks = onRequest(shopify.getWebhooks);
+export const shopifyUninstallApp = onRequest(shopify.uninstallApp);
 export const shopifyOnAppUninstall = onRequest(shopify.onAppUninstall);
 export const shopifyOnProductsCreate = onRequest(
   {secrets: [shopifyApiSecret]},
