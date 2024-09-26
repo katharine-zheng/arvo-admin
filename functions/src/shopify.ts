@@ -4,13 +4,12 @@ import * as dialogflowFn from "./dialogflow";
 import * as logger from "firebase-functions/logger";
 import axios from "axios";
 import crypto = require("crypto");
+import {admin, db} from "./firebase";
 
+// Your cloud functions code here
 import * as cors from "cors";
 const corsHandler = cors({origin: true});
 
-import * as admin from "firebase-admin";
-admin.initializeApp();
-const db = admin.firestore();
 const shopifyApiKey = defineSecret("SHOPIFY_API_KEY");
 const shopifyApiSecret = defineSecret("SHOPIFY_API_SECRET");
 
@@ -124,7 +123,7 @@ export const authCallback = onRequest(
       await storeInitialData(state.toString(), accessToken, {
         shop: shopData, products, webhooks,
       });
-
+      await dialogflowFn.updateDialogflowEntities(products);
       // todo update
       const redirectUrl = "https://arvo-prod.web.app/dashboard";
 
@@ -133,15 +132,16 @@ export const authCallback = onRequest(
       logger.error("Error exchanging code for access token:", error);
       res.status(500).send("Error during OAuth");
     }
+    return;
   });
 
 /**
  * Getting the shopify shop object
- * @param {string} shop shopify domain
+ * @param {string} domain shopify domain
  * @param {string} accessToken access token
  * @return {Promise<any>}
  */
-export async function fetchShop(shop: string, accessToken: string):
+export async function fetchShop(domain: string, accessToken: string):
 Promise<any> {
   const headers = {
     headers: {
@@ -150,7 +150,7 @@ Promise<any> {
     },
   };
 
-  const endpoint = `https://${shop}/admin/api/2023-04/shop.json`;
+  const endpoint = `https://${domain}/admin/api/2023-04/shop.json`;
   let result;
   try {
     const axiosResponse = await axios.get(endpoint, headers);
@@ -166,11 +166,11 @@ Promise<any> {
 
 /**
  * Getting shopify products
- * @param {string} shop shopify domain
+ * @param {string} domain shopify domain
  * @param {string} accessToken access token
  * @return {Promise<any>}
  */
-export async function fetchProducts(shop: string, accessToken: string):
+export async function fetchProducts(domain: string, accessToken: string):
 Promise<any> {
   const headers = {
     headers: {
@@ -179,7 +179,7 @@ Promise<any> {
     },
   };
 
-  const endpoint = `https://${shop}/admin/api/2024-01/products.json`;
+  const endpoint = `https://${domain}/admin/api/2024-01/products.json`;
   let result = [];
   try {
     const axiosResponse = await axios.get(endpoint, headers);
@@ -194,12 +194,11 @@ Promise<any> {
 
 /**
  * Getting shopify products
- * @param {string} shop shopify domain
-//  * @param {string} type data type
+ * @param {string} domain shopify domain
  * @param {string} accessToken access token
  * @return {Promise<any>}
  */
-export async function fetchWebhooks(shop: string, accessToken: string):
+export async function fetchWebhooks(domain: string, accessToken: string):
 Promise<any> {
   // logger.log(`shop: ${shop}, type: ${type}, token: ${accessToken}`);
   const headers = {
@@ -209,7 +208,7 @@ Promise<any> {
     },
   };
 
-  const endpoint = `https://${shop}/admin/api/2024-01/webhooks.json`;
+  const endpoint = `https://${domain}/admin/api/2024-01/webhooks.json`;
   let result;
   try {
     const response = await axios.get(endpoint, headers);
@@ -279,6 +278,7 @@ export async function storeInitialData(accountId: string,
         const productData = {
           id: newDocRef.id,
           shopId: shopId,
+          shopDomain: domain,
           accountId,
           type: "shopify",
           description: product.body_html,
@@ -289,6 +289,7 @@ export async function storeInitialData(accountId: string,
           status: product.status,
           tags: product.tags,
           title: product.title,
+          name: product.title,
           productType: product.product_type,
           variants: product.variants,
           vendor: product.vendor,
@@ -312,13 +313,13 @@ export async function storeInitialData(accountId: string,
  * registeres the shopify webhook for uninstallation
  * @param {string} topic - webhook topic
  * @param {string} functionName - function name
- * @param {string} shop - shop domain
+ * @param {string} domain - shop domain
  * @param {string} accessToken - shopify accessToken
  */
 async function registerWebhook(
-  topic: string, functionName: string, shop: string, accessToken: string) {
+  topic: string, functionName: string, domain: string, accessToken: string) {
   try {
-    await axios.post(`https://${shop}/admin/api/2024-01/webhooks.json`, {
+    await axios.post(`https://${domain}/admin/api/2024-01/webhooks.json`, {
       webhook: {
         topic: topic,
         address: `https://us-central1-arvo-prod.cloudfunctions.net/shopify${functionName}`,
@@ -332,7 +333,7 @@ async function registerWebhook(
     });
     logger.info(`Webhook registered for ${topic}`);
   } catch (error) {
-    logger.error(error);
+    logger.error("registerWebhook failed: ", error);
   }
 }
 
@@ -367,22 +368,41 @@ function verifyWebhook(req: any, secret: string): boolean {
 /**
  * Retrieves the access token for the specified shop.
  * @param {string} shopId - store id
+ * @param {string} domain - store subdomain
  * @return {Promise<any>} A promise that resolves to the access token.
  */
-export async function getAccessToken(shopId: string):
+export async function getAccessToken(shopId: any, domain: any):
   Promise<any> {
+  if (!domain && !shopId) {
+    logger.error(`getAccessToken: parameters missing ${domain} = ${shopId}`);
+  }
   try {
-    const storeSnapshot = await db.collection("platformStores")
-      .where("id", "==", shopId)
-      .limit(1)
-      .get();
+    let storeSnapshot;
+    if (shopId && shopId.length > 0) {
+      storeSnapshot = await db.collection("platformStores")
+        .where("id", "==", shopId)
+        .limit(1)
+        .get();
 
-    if (storeSnapshot.empty) {
-      logger.log(`getAccessToken: Store not found: ${shopId}`);
-      return null;
-    } else {
-      const data = storeSnapshot.docs[0].data();
-      return data.accessToken;
+      if (!storeSnapshot.empty) {
+        const data = storeSnapshot.docs[0].data();
+        return data.accessToken;
+      }
+    }
+
+    if (domain && domain.length > 0) {
+      storeSnapshot = await db.collection("platformStores")
+        .where("subdomain", "==", domain)
+        .limit(1)
+        .get();
+
+      if (storeSnapshot.empty) {
+        logger.log(`getAccessToken: Store not found: ${domain} - ${shopId}`);
+        return null;
+      } else {
+        const data = storeSnapshot.docs[0].data();
+        return data.accessToken;
+      }
     }
   } catch (error) {
     logger.error("getAccessToken: ", error);
@@ -405,12 +425,12 @@ export const onAppUninstall = onRequest(
         return;
       }
 
-      const shopDomain = req.body.myshopify_domain;
+      const domain = req.body.myshopify_domain;
       const shopId = req.body.id;
       try {
         const accountId = await getAccountIdByShopId(shopId);
         if (!accountId) {
-          logger.error(`onAppUninstall: Account not found for ${shopDomain}`);
+          logger.error(`onAppUninstall: Account not found for ${domain}`);
           res.status(404).send("Account not found");
           return;
         }
@@ -424,16 +444,20 @@ export const onAppUninstall = onRequest(
         });
 
         const productsSnapshot = await db.collection("products")
-          .where("shopId", "==", shopId)
+          .where("shopDomain", "==", domain)
           .get();
 
         if (productsSnapshot.empty) {
           logger.log(`No products found for shopId: ${shopId}`);
         } else {
-          // Use a batch to delete all products associated with the shopId
-          productsSnapshot.forEach((doc: any) => {
+          const productsList: any[] = [];
+
+          productsSnapshot.forEach((doc) => {
+            productsList.push(doc.data());
             batch.delete(doc.ref);
           });
+
+          await dialogflowFn.cleanUpEntities(productsList);
         }
 
         const storeSnapshot = await db.collection("platformStores")
@@ -449,9 +473,9 @@ export const onAppUninstall = onRequest(
         }
 
         await batch.commit();
-        logger.info(`onAppUninstall: Db update for ${shopDomain} done.`);
+        logger.info(`onAppUninstall: Db update for ${domain} done.`);
       } catch (error) {
-        logger.error(`Error deleting store data for ${shopDomain}:`, error);
+        logger.error(`Error deleting store data for ${domain}:`, error);
         res.status(500).send("Error cleaning up store data");
         return;
       }
@@ -459,7 +483,7 @@ export const onAppUninstall = onRequest(
       // TODO logic for canceling subscription
 
       // Respond with success
-      logger.info(`onAppUninstall: completed - ${shopDomain}`);
+      logger.info(`onAppUninstall: completed - ${domain}`);
       res.status(200).send("Uninstall webhook handled");
     });
   });
@@ -506,31 +530,44 @@ export const onProductsCreate = onRequest(
 
       const product = req.body;
       const productId = product.id;
+      const shopDomain = req.get("X-Shopify-Shop-Domain");
       if (!productId) {
         res.status(400).send("Product ID is missing");
         return;
       }
 
       try {
+        const querySnapshot = await db.collection("products")
+          .where("productId", "==", product.id)
+          .limit(1)
+          .get();
+
+        if (!querySnapshot.empty) {
+          logger.info(`onProductsCreate: ${product.title} already added`);
+          return;
+        }
+
         const productRef = db.collection("products").doc();
         const productData = {
           id: productRef.id,
           description: product.body_html,
+          images: product.images,
+          name: product.title,
+          options: product.options,
           price: product.variants[0].price,
           productId: product.id,
-          images: product.images,
-          options: product.options,
+          productType: product.product_type,
+          shopDomain: shopDomain,
           status: product.status,
           tags: product.tags,
           title: product.title,
-          type: product.product_type,
           variants: product.variants,
           vendor: product.vendor,
           updateTime: admin.firestore.FieldValue.serverTimestamp(),
         };
 
         await productRef.set(productData);
-        await dialogflowFn.updateDialogflowEntities([product]);
+        await dialogflowFn.updateDialogflowEntities([productData]);
         res.status(200).send(`Product ${productId} updated.`);
       } catch (error) {
         console.error("Error updating product:", error);
@@ -576,6 +613,8 @@ export const onProductsUpdate = onRequest(
           return;
         }
 
+        const productDoc = snapshot.docs[0];
+
         const productData = {
           description: product.body_html,
           price: product.variants[0].price,
@@ -585,14 +624,16 @@ export const onProductsUpdate = onRequest(
           status: product.status,
           tags: product.tags,
           title: product.title,
+          name: product.title,
           type: product.product_type,
           variants: product.variants,
           vendor: product.vendor,
           updateTime: admin.firestore.FieldValue.serverTimestamp(),
         };
 
-        await snapshot.docs[0].ref.update(productData);
-        await dialogflowFn.updateDialogflowEntities([product]);
+        const oldProduct = productDoc.data();
+        await dialogflowFn.compareEntities(productData, oldProduct);
+        await productDoc.ref.update(productData);
         res.status(200).send(`Product ${productId} updated.`);
       } catch (error) {
         console.error("Error updating product:", error);
@@ -620,9 +661,14 @@ export const onProductsDelete = onRequest(
       }
 
       const product = req.body;
+      if (!product) {
+        logger.error("Product doesn't exist");
+        return;
+      }
+
       const productId = product.id;
       if (!productId) {
-        res.status(400).send("Product ID is missing");
+        logger.error("Product ID is missing");
         return;
       }
 
@@ -638,7 +684,10 @@ export const onProductsDelete = onRequest(
           return;
         }
 
-        await snapshot.docs[0].ref.delete();
+        const productDoc = snapshot.docs[0];
+        const productData = productDoc.data();
+        await dialogflowFn.cleanUpEntities([productData]);
+        await productDoc.ref.delete();
         res.status(200).send(`Product ${productId} deleted.`);
       } catch (error) {
         logger.error("Error deleting product:", error);
@@ -656,16 +705,16 @@ export const addWebhook = onRequest((req, res) => {
     res.set("Access-Control-Allow-Methods", "GET, POST");
     res.set("Access-Control-Allow-Headers", "Content-Type");
 
-    const {topic, functionName, shop, shopId} = req.body.data;
-    if (!shop || !shopId || !topic || !functionName) {
-      logger.error(`Parameters missing: ${shop} - ${shopId} -
+    const {topic, functionName, domain, shopId} = req.body.data;
+    if (!domain || !shopId || !topic || !functionName) {
+      logger.error(`Parameters missing: ${domain} - ${shopId} -
       ${topic} - ${functionName}`);
       return;
     }
 
-    const accessToken = await getAccessToken(shopId);
+    const accessToken = await getAccessToken(shopId, domain);
     if (accessToken) {
-      await registerWebhook(topic, functionName, shop, accessToken);
+      await registerWebhook(topic, functionName, domain, accessToken);
     } else {
       logger.error(`Access token missing for: ${shopId}`);
     }
@@ -678,15 +727,15 @@ export const deleteWebhook = onRequest(async (req, res) => {
     res.set("Access-Control-Allow-Methods", "GET, POST");
     res.set("Access-Control-Allow-Headers", "Content-Type");
 
-    const {shop, shopId, webhookId} = req.body.data;
-    if (!shop || !shopId || !webhookId) {
-      logger.error(`Parameters missing: ${shop} - ${shopId} - ${webhookId}`);
+    const {domain, shopId, webhookId} = req.body.data;
+    if (!domain || !shopId || !webhookId) {
+      logger.error(`Parameters missing: ${domain} - ${shopId} - ${webhookId}`);
       return;
     }
 
-    const accessToken = await getAccessToken(shopId);
+    const accessToken = await getAccessToken(shopId, domain);
     if (accessToken) {
-      const endpoint = `https://${shop}/admin/api/2024-01/webhooks/${webhookId}.json`;
+      const endpoint = `https://${domain}/admin/api/2024-01/webhooks/${webhookId}.json`;
       const headers = {
         headers: {
           "Content-Type": "application/json",
@@ -704,15 +753,6 @@ export const deleteWebhook = onRequest(async (req, res) => {
           logger.error(`Store not found / webhook not removed: ${shopId}`);
         } else {
           const storeDocRef = storeSnapshot.docs[0].ref;
-          // const storeData = (await storeRef.get()).data();
-          // const data = storeSnapshot.docs[0].data();
-
-          // await storeRef.update(storeRef, {
-          //   webhooks: admin.firestore.FieldValue.arrayRemove()
-          // });
-
-          // const storeDocRef = db.collection('platformStores')
-          // .doc(`shopify-${shopId}`);
           const storeDoc = await storeDocRef.get();
           if (!storeDoc.exists) {
             res.status(404).send(`Store ${shopId} not found`);
@@ -732,7 +772,7 @@ export const deleteWebhook = onRequest(async (req, res) => {
             webhooks: updatedWebhooks,
           });
         }
-        logger.info(`Webhook ${webhookId} deleted for ${shop}`);
+        logger.info(`Webhook ${webhookId} deleted for ${domain}`);
       } catch (error) {
         logger.error(error);
       }
@@ -748,13 +788,13 @@ export const getWebhooks = onRequest(async (req, res) => {
     res.set("Access-Control-Allow-Methods", "GET, POST");
     res.set("Access-Control-Allow-Headers", "Content-Type");
 
-    const {shopId, shop} = req.body.data;
-    if (!shopId || !shop) {
-      logger.error(`Parameters missing: ${shop} - ${shopId}`);
+    const {shopId, domain} = req.body.data;
+    if (!shopId || !domain) {
+      logger.error(`Parameters missing: ${domain} - ${shopId}`);
       res.status(400).send("CF: getWebhooks - Missing parameters");
       return;
     }
-    const accessToken = await getAccessToken(shopId);
+    const accessToken = await getAccessToken(shopId, domain);
     if (!accessToken) {
       logger.error("Missing access token");
       res.status(400).send("CF: getWebhooks - Missing access token");
@@ -774,7 +814,7 @@ export const getWebhooks = onRequest(async (req, res) => {
       },
     };
 
-    const endpoint = `https://${shop}/admin/api/2024-01/webhooks.json`;
+    const endpoint = `https://${domain}/admin/api/2024-01/webhooks.json`;
     let result;
 
     try {
@@ -786,12 +826,50 @@ export const getWebhooks = onRequest(async (req, res) => {
       res.status(200).send({data: result});
       return result;
     } catch (error) {
-      logger.error(`CF: an error with shopify webhooks: ${shop}`);
-      res.status(500).send(`CF: an error with shopify webhooks: ${shop}`);
+      logger.error(`CF: an error with shopify webhooks: ${domain}`);
+      res.status(500).send(`CF: an error with shopify webhooks: ${domain}`);
       return;
     }
   });
 });
+
+/**
+ * Gets a list of products from shopify
+ * @param {string} domain - The name of the shop.
+ * @param {string} shopId - shop Id.
+ */
+export async function getProducts(domain: string, shopId: string) {
+  if (!domain && !shopId) {
+    logger.error(`getProducts - Parameters missing: ${domain} - ${shopId}`);
+    return;
+  }
+  const accessToken = await getAccessToken(shopId, domain);
+  if (!accessToken) {
+    logger.error("Missing access token");
+    return;
+  }
+  const headers = {
+    headers: {
+      "Content-Type": "application/json",
+      "X-Shopify-Access-Token": accessToken,
+    },
+  };
+
+  const endpoint = `https://${domain}/admin/api/2024-01/products.json`;
+  let result;
+
+  try {
+    const axiosResponse = await axios.get(endpoint, headers);
+
+    if (axiosResponse.data && axiosResponse.data.products) {
+      result = axiosResponse.data;
+    }
+    return result.products;
+  } catch (error) {
+    logger.error(`CF: an error with shopify products: ${domain}`);
+    return;
+  }
+}
 
 // export const getProducts = onRequest(async (req, res) => {
 //   corsHandler(req, res, async () => {
