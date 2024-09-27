@@ -15,10 +15,12 @@ export class DbService {
   private _products: any[] = [];
   private _media: any[] = [];
 
+  private accountSource = new BehaviorSubject<any>(null);
+  public currentAccount = this.accountSource.asObservable();
   private productSource = new BehaviorSubject<any>(null);
-  currentProduct = this.productSource.asObservable();
+  public currentProduct = this.productSource.asObservable();
   private journeySource = new BehaviorSubject<any>(null);
-  currentJourney = this.journeySource.asObservable();
+  public currentJourney = this.journeySource.asObservable();
 
   get account() {
     return this._account;
@@ -45,22 +47,26 @@ export class DbService {
 
   constructor(private firestore: Firestore) {}
 
-  // Method to set the product data
+  setAccountData(account: any) {
+    this.accountSource.next(account);
+  }
+
+  getAccountData() {
+    return this.accountSource.getValue();
+  }
+
   setProductData(product: any) {
     this.productSource.next(product);
   }
 
-  // Method to get the current product data
   getProductData() {
     return this.productSource.getValue();
   }
 
-  // Method to set the product data
   setJourneyData(journey: any) {
     this.journeySource.next(journey);
   }
 
-  // Method to get the current product data
   getJourneyData() {
     return this.journeySource.getValue();
   }
@@ -79,6 +85,7 @@ export class DbService {
         const account: any = docSnap.data();
         this._account = account;
         this._mediaTags = account.mediaTags;
+        this.setAccountData(account);
         return account;
       }
     } catch (error) {
@@ -137,7 +144,7 @@ export class DbService {
     try {
       // Define the query to check for the myshopify_domain in platformStores collection
       const platformStoresRef = collection(this.firestore, 'platformStores');
-      const q = query(platformStoresRef, where('subdomain', '==', domain));
+      const q = query(platformStoresRef, where('shopDomain', '==', domain));
 
       // Execute the query
       const querySnapshot = await getDocs(q);
@@ -366,20 +373,20 @@ export class DbService {
   }
 
   async addMedia(data: any) {
-    const mediaRef = collection(this.firestore, 'media');
-    const docRef = await addDoc(mediaRef, data);
-    return docRef.id;
+    const ref = doc(collection(this.firestore, "media"));
+    data.id = ref.id;
+    await setDoc(ref, data);
+    return ref.id;
   }
 
   async deleteMedia(mediaId: string) {
-    const mediaDocRef = doc(this.firestore, `media/${mediaId}`);
-    await deleteDoc(mediaDocRef);
-
+    const mediaDocRef = doc(this.firestore, "media", mediaId);
     const productsRef = collection(this.firestore, 'products');
     const productQuery = query(productsRef, where('mediaIds', 'array-contains', mediaId));
     const productSnapshots = await getDocs(productQuery);
+    const batch = writeBatch(this.firestore);
 
-    const batch = writeBatch(this.firestore); // Use a batch for atomic updates
+    batch.delete(mediaDocRef);
     productSnapshots.forEach((productDoc) => {
       const productData = productDoc.data();
       const mediaList = productData['mediaList'].filter((media: any) => media.id !== mediaId);
@@ -429,12 +436,6 @@ export class DbService {
       // Update the product with the modified mediaList
       const productRef = doc(this.firestore, `products/${productDoc.id}`);
       await updateDoc(productRef, {
-        mediaList: updatedMediaList
-      });
-
-      // Update the journey with the modified mediaList
-      const journeyRef = doc(this.firestore, `journeys/${productDoc.id}`);
-      await updateDoc(journeyRef, {
         mediaList: updatedMediaList
       });
     });

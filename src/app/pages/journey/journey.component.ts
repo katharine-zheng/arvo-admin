@@ -22,6 +22,7 @@ export class JourneyComponent implements OnInit {
     { label: 'Post-Purchase', value: 'postPurchase' }
   ];
   
+  private account: any;
   private journeyId: string | undefined;
   private allMedia: any[] = [];
   private filteredMedia: any[] = [];  // List of media filtered by tag
@@ -37,11 +38,17 @@ export class JourneyComponent implements OnInit {
 
   ngOnInit(): void {
     this.journeyId = this.route.snapshot.paramMap.get('id') || '';
-    this.fetchMedia();
 
     if (!this.journeyId) {
       this.setDisplayMode('all');
     }
+
+    this.db.currentAccount.subscribe((account: any) => {
+      if (account) {
+        this.account = account;
+        this.fetchMedia();
+      }
+    });
 
     this.db.currentJourney.subscribe(journey => {
       if (journey) {
@@ -80,7 +87,7 @@ export class JourneyComponent implements OnInit {
   }
 
   async fetchMedia() {
-    this.allMedia = await this.db.getMedia(this.db.account.id);
+    this.allMedia = await this.db.getMedia(this.account.id);
     this.filteredMedia = this.allMedia;
     this.displayedMedia = this.allMedia;
     this.availableTags = this.db.mediaTags;
@@ -178,7 +185,7 @@ export class JourneyComponent implements OnInit {
       const nameExists = this.nameExists(name);
       const mediaList = this.journeyForm.value.mediaList;
       const journey: any = {
-        accountId: this.db.account.id,
+        accountId: this.account.id,
         name: name,
         type: this.journeyForm.value.type,
         mediaList: mediaList,

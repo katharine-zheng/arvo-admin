@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
@@ -9,7 +9,8 @@ import { DbService } from '../../services/db.service';
   templateUrl: './product.component.html',
   styleUrl: './product.component.css'
 })
-export class ProductComponent {
+export class ProductComponent implements OnInit {
+  public account: any;
   public product: any;
   public displayMode: string = "";
   public selectedTag: string = "";
@@ -22,21 +23,25 @@ export class ProductComponent {
   private allMedia: any[] = [];
   private filteredMedia: any[] = [];  // List of media filtered by tag
 
-  constructor(private route: ActivatedRoute, private fb: FormBuilder, private db: DbService) {
+  constructor(private route: ActivatedRoute, private fb: FormBuilder, private changeRef: ChangeDetectorRef, private db: DbService) {
     this.productForm = this.fb.group({
       name: ['', Validators.required],  // Add the name field
       mediaList: [[]],
-      tagFilter: [''] 
     });
   }
 
   ngOnInit(): void {
     this.productId = this.route.snapshot.paramMap.get('id') || '';
-    this.fetchMedia();
-
     if (!this.productId) {
       this.setDisplayMode('all');
     }
+
+    this.db.currentAccount.subscribe(account => {
+      if (account) {
+        this.account = account;
+        this.fetchMedia();
+      }
+    });
 
     this.db.currentProduct.subscribe(product => {
       if (product) {
@@ -50,11 +55,6 @@ export class ProductComponent {
         this.setDisplayMode('all');
       }
     });
-
-    this.productForm.get('tagFilter')?.valueChanges.subscribe(tag => {
-      this.selectedTag = tag;
-      this.filterMediaByTag();  // Filter the media when the tag changes
-    });
   }
 
   drop(event: CdkDragDrop<any[]>) {
@@ -65,7 +65,7 @@ export class ProductComponent {
   }
 
   clearFilters() {
-    this.productForm.controls['tagFilter'].setValue('');  // Clear tag filter
+    // this.productForm.controls['tagFilter'].setValue('');  // Clear tag filter
     this.filteredMedia = [...this.allMedia];  // Reset to show all media
     this.displayedMedia = [...this.allMedia];
     this.displayMode = 'all';  // Reset display mode to 'all'
@@ -73,7 +73,7 @@ export class ProductComponent {
   }
 
   async fetchMedia() {
-    this.allMedia = await this.db.getMedia(this.db.account.id);
+    this.allMedia = await this.db.getMedia(this.account.id);
     this.allMedia = this.allMedia;
     this.filteredMedia = this.allMedia;
     this.displayedMedia = this.allMedia;
@@ -105,14 +105,17 @@ export class ProductComponent {
   }
 
   // Filter media by the selected tag
-  filterMediaByTag() {
+  filterMediaByTag(tag: string) {
+    this.selectedTag = tag;
     if (this.selectedTag && this.selectedTag !== '') {
       this.filteredMedia = this.allMedia.filter(media => media.tags.includes(this.selectedTag));
       this.displayedMedia = this.filteredMedia;
     } else {
       // If no tag is selected, show all media
       this.filteredMedia = this.allMedia;
+      this.displayedMedia = this.filteredMedia;
     }
+    this.changeRef.detectChanges();
   }
 
   updatedisplayedMedia() {
@@ -174,7 +177,7 @@ export class ProductComponent {
       const nameExists = this.nameExists(name);
       const mediaList = this.productForm.value.mediaList;
       const product: any = {
-        accountId: this.db.account.id,
+        accountId: this.account.id,
         name: name,
         mediaList: mediaList,
         mediaIds: mediaList.map((media: any) => media.id),

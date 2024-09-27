@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ProductFormComponent } from '../../modals/product-form/product-form.component';
 import { DbService } from '../../services/db.service';
@@ -12,7 +12,7 @@ import { ShopifyService } from '../../services/shopify.service';
   templateUrl: './products.component.html',
   styleUrl: './products.component.css'
 })
-export class ProductsComponent {
+export class ProductsComponent implements OnInit {
   public isLoading: boolean = false;
   public searchTerm: string = "";
   public importedProducts: any[] = [];
@@ -20,12 +20,18 @@ export class ProductsComponent {
   public view: 'grid' | 'table' = 'table';
   public products: any[] = [];
   public filteredProducts: any[] = [];
-  public qrCodeElement: HTMLElement | undefined | null; // To store the reference to the QR code container
+  public qrCodeElement: HTMLElement | undefined | null;
+  private account: any;
 
   constructor(private router: Router, private dialog: MatDialog, private shopify: ShopifyService, private db: DbService) {}
 
   ngOnInit() {
     this.getProducts();
+    this.db.currentAccount.subscribe((account: any) => {
+      if (account) {
+        this.account = account;
+      }
+    });
   }
 
   async getProducts() {
@@ -73,7 +79,7 @@ export class ProductsComponent {
     const dialogRef = this.dialog.open(QRCodeComponent, {
       width: '350px',
       data: {
-        qrCodeSettings: this.db.account.settings.qrCode,
+        qrCodeSettings: this.account.settings.qrCode,
         product,
       },
       hasBackdrop: true,
@@ -139,12 +145,12 @@ export class ProductsComponent {
 
   // note not used
   async importShopifyProducts() {
-    if (this.db.account.platformStores) {
-      const shopValues: any[] = Object.values(this.db.account.platformStores);
+    if (this.account.platformStores) {
+      const shopValues: any[] = Object.values(this.account.platformStores);
       if (shopValues.length === 0) {
         console.error("");
       } else if (shopValues.length === 1 && shopValues[0]) {
-        const shop = shopValues[0].subdomain;
+        const shop = shopValues[0].shopDomain;
         const id = shopValues[0].id;
         this.importedProducts = await this.shopify.getProducts(id, shop);
       } else {

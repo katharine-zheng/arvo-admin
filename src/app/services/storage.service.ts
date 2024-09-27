@@ -43,7 +43,7 @@ export class StorageService {
             };
 
             const mediaId = await this.db.addMedia(data);
-            await this.uploadThumbnail(thumbnailUrl, fileName, mediaId);
+            await this.uploadThumbnail(thumbnailUrl, fileName, mediaId, accountId);
             // await this.db.saveMediaThumbnail(mediaId, downloadURL);
             observer.next({ progress: 100, downloadURL, media: data });
             observer.complete();
@@ -54,32 +54,26 @@ export class StorageService {
   }
 
   // Method to delete a media from Firebase Storage and Firestore
-  deleteMedia(mediaId: string, mediaUrl: string): Observable<void> {
-    return new Observable<void>((observer) => {
-      const storageRef = ref(this.storage, mediaUrl); // Reference to the media in Storage
+  async deleteMedia(media: any) {
+    const mediaId = media.id;
+    const path = `media/${media.accountId}/${media.name}`;
+    const thumbnailPath = `thumbnails/${media.accountId}/${media.name}.jpg`;
+    const storageRef = ref(this.storage, path);
+    const thumbnailRef = ref(this.storage, thumbnailPath);
 
-      // First, delete the media from Firebase Storage
-      deleteObject(storageRef)
-        .then(async () => {
-          // After deleting the media from storage, remove its metadata from Firestore
-          await this.db.deleteMedia(mediaId);
-        })
-        .then(() => {
-          observer.next(); // Notify that the media was successfully deleted
-          observer.complete();
-        })
-        .catch(async (error) => {
-          // just in case it still exists in the collection
-          await this.db.deleteMedia(mediaId);
-          console.error('Error deleting media:', error);
-          observer.error(error); // Emit error if deletion fails
-        });
-    });
+    // First, delete the media from Firebase Storage
+    try {
+      await deleteObject(storageRef);
+      await deleteObject(thumbnailRef);
+      await this.db.deleteMedia(mediaId);
+    } catch (error) {
+      console.error('Error deleting media:', error);
+    }
   }
 
-  uploadThumbnail(thumbnailDataURL: string, fileName: string, mediaId: string): Promise<string> {
+  uploadThumbnail(thumbnailDataURL: string, fileName: string, mediaId: string, accountId: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      const storageRef = ref(this.storage, `thumbnails/${fileName}.jpg`);
+      const storageRef = ref(this.storage, `thumbnails/${accountId}/${fileName}.jpg`);
       
       // Convert base64 data URL to Blob
       fetch(thumbnailDataURL)

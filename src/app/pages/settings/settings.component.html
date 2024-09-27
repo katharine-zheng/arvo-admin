@@ -17,12 +17,24 @@
 </ng-container>
 <div id="qrCodeContainer"></div>
 
-<h3>Shopify webhooks</h3>
-<div *ngFor="let webhook of webhooks">
-  <button (click)="addWebhook(webhook.topic)">Add {{webhook.topic}}</button>
-</div>
-<br/>
-<!-- <h3>Shop webhooks</h3>
-<div *ngFor="let webhook of accountWebhooks">
-  <button (click)="deleteWebhook(webhook.id)">Delete {{webhook.topic}}</button>
-</div> -->
+<ng-container *ngIf="account">
+  Account
+  <ng-container *ngIf="stores && stores.length > 0">
+    Stores
+
+    <h3>Shopify webhooks</h3>
+    <ng-container *ngFor="let webhook of webhooks">
+      <button (click)="addWebhook(webhook.topic)">Add {{webhook.topic}}</button>
+    </ng-container>
+    <br/>
+    <!-- <h3>Shop webhooks</h3>
+    <div *ngFor="let webhook of accountWebhooks">
+      <button (click)="deleteWebhook(webhook.id)">Delete {{webhook.topic}}</button>
+    </div> -->
+    <ng-container *ngFor="let store of stores">
+      <ng-container *ngIf="store.type === 'shopify'">
+        <button (click)="uninstallShopifyApp(store.shopId, store.shopDomain)">Uninstall shopify app</button>
+      </ng-container>
+    </ng-container>
+  </ng-container>
+</ng-container>

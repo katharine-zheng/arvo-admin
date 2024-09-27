@@ -12,15 +12,20 @@ import { QRCodeComponent } from '../../modals/qrcode/qrcode.component';
   styleUrl: './journeys.component.css'
 })
 export class JourneysComponent {
-  journeys: any[] = [];
-  displayedColumns: string[] = ['name', 'type', 'actions', 'qr code'];
-  filteredJourneys: any[] = [];
-  view: 'grid' | 'table' = 'table';
+  public journeys: any[] = [];
+  public displayedColumns: string[] = ['name', 'type', 'actions', 'qr code'];
+  public filteredJourneys: any[] = [];
+  public view: 'grid' | 'table' = 'table';
+  private account: any;
 
   constructor(private router: Router, private dialog: MatDialog, private qrCodeService: QRCodeService, private db: DbService) {}
 
   ngOnInit() {
-    this.getJourneys();
+    this.db.currentAccount.subscribe((account: any) => {
+      if (account) {
+        this.getJourneys();
+      }
+    });
   }
 
   async getJourneys() {
@@ -51,7 +56,7 @@ export class JourneysComponent {
     const dialogRef = this.dialog.open(QRCodeComponent, {
       width: '350px',
       data: {
-        qrCodeSettings: this.db.account.settings.qrCode,
+        qrCodeSettings: this.account.settings.qrCode,
         journey,
       },
       hasBackdrop: true,

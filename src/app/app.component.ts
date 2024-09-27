@@ -20,6 +20,9 @@ export class AppComponent implements OnInit {
     onAuthStateChanged(this.fAuth, (user) => {
       if (user) {
         this.isAuthenticated = true;
+        if (!this.db.account) {
+          this.db.getAccount(user.uid);
+        }
       } else if (this.router.url.startsWith('/shopify') || this.router.url.startsWith('/auth')) {
         // this.route.queryParams.subscribe(params => {
         //   this.router.navigate(['/auth'], { queryParams: params });

@@ -26,8 +26,8 @@ export class ShopifyService {
       const shops: any[] = Object.values(this.db.account.platformStores);
       if (shops && shops[0]) {
         const shopId = shops[0].id;
-        const shop = shops[0].subdomain;
-        const params = { topic, functionName, shop, shopId };
+        const domain = shops[0].shopDomain;
+        const params = { topic, functionName, domain, shopId };
         const url = httpsCallable(this.fn, "shopifyAddWebhook");
         await url(params).then((response: any) => {
         }).catch((error) => {
@@ -37,10 +37,10 @@ export class ShopifyService {
     }
   }
 
-  async getWebhooks(shop: string, shopId: string, ) {
+  async getWebhooks(domain: string, shopId: string, ) {
     const account = this.db.account;
     if (account) {
-      const params = { shop, shopId };
+      const params = { domain, shopId };
       const url = httpsCallable(this.fn, "shopifyGetWebhooks");
       await url(params).then((response: any) => {
         this._webhooks = response.data;
@@ -54,11 +54,10 @@ export class ShopifyService {
     return [];
   }
 
-  async deleteWebhook(shop: string, shopId: string, webhookId: string) {
+  async deleteWebhook(domain: string, shopId: string, webhookId: string) {
     const account = this.db.account;
     if (account) {
-      const params = { shop, shopId, webhookId };
-      console.log(params);
+      const params = { domain, shopId, webhookId };
       const url = httpsCallable(this.fn, "shopifyDeleteWebhook");
       await url(params).then((response: any) => {
       }).catch((error) => {
@@ -87,5 +86,19 @@ export class ShopifyService {
       return this._products;
     }
     return [];
+  }
+
+  async uninstallApp(shopId: string, shopDomain: string) {
+    const account = this.db.account;
+    if (account) {
+      const accountId = account.id;
+      const params = { accountId, shopId, shopDomain };
+      const url = httpsCallable(this.fn, "shopifyUninstallApp");
+      await url(params).then((response: any) => {
+      }).catch((error) => {
+        console.error('An error occurred getting Products from Shopify');
+        console.error(error);
+      })
+    }
   }
 }
