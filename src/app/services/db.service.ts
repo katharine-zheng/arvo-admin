@@ -552,7 +552,7 @@ export class DbService {
     try {
       await updateDoc(productRef, {
         mediaList: arrayUnion(...media),
-        mediaIds: mediaIds,
+        mediaIds: arrayUnion(...mediaIds),
       });
     } catch (error) {
       console.error('Error adding media to the journey:', error);
@@ -566,7 +566,7 @@ export class DbService {
     try {
       await updateDoc(journeyRef, {
         mediaList: arrayUnion(...media),
-        mediaIds: mediaIds,
+        mediaIds: arrayUnion(...mediaIds),
       });
     } catch (error) {
       console.error('Error adding media to the journey:', error);

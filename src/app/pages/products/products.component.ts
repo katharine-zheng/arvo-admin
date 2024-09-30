@@ -16,7 +16,7 @@ export class ProductsComponent implements OnInit {
   public isLoading: boolean = false;
   public searchTerm: string = "";
   public importedProducts: any[] = [];
-  public displayedColumns: string[] = ['image', 'name', 'actions', 'qr code'];
+  public displayedColumns: string[] = ['image', 'name', 'media', 'actions', 'qr code'];
   public view: 'grid' | 'table' = 'table';
   public products: any[] = [];
   public filteredProducts: any[] = [];
@@ -37,6 +37,7 @@ export class ProductsComponent implements OnInit {
   async getProducts() {
     this.isLoading = true;
     this.products = await this.db.getProducts();
+    console.log(this.products);
     this.filteredProducts = this.products;
     this.isLoading = false;
   }
