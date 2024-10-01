@@ -253,7 +253,7 @@ export async function storeInitialData(accountId: string,
         },
         updateTime,
       });
-      logger.info(`storeInitialData: access token saved for account: ${doc.id}`);
+      logger.info(`storeInitialData: access token saved: ${doc.id}`);
     } else {
       logger.error(`storeInitialData: account not found: ${accountId}`);
       return false;
@@ -551,6 +551,7 @@ export const onAppUninstall = onRequest(
         await storeRef.set({
           shopDomain: domain,
           shopId,
+          deletionTime: admin.firestore.FieldValue.serverTimestamp(),
         });
       } catch (error) {
         logger.error(`onAppUninstall: ${domain}:`, error);
