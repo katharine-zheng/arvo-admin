@@ -11,9 +11,13 @@ import { DragDropModule } from '@angular/cdk/drag-drop';
 import { MatTableModule } from '@angular/material/table'; // Import the MatTableModule
 import { MatFormFieldModule } from '@angular/material/form-field'; // Optional for form fields in the table
 import { MatInputModule } from '@angular/material/input'; // Optional for input in the table
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatDialogModule } from '@angular/material/dialog';
+import { MatNativeDateModule } from '@angular/material/core';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSelectModule } from '@angular/material/select';
+
 import { ProductFormComponent } from './modals/product-form/product-form.component';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MediaComponent } from './pages/media/media.component';
@@ -34,6 +38,9 @@ import { QRCodeComponent } from './modals/qrcode/qrcode.component';
 import { ProductComponent } from './pages/product/product.component';
 import { UploadModalComponent } from './modals/upload-modal/upload-modal.component';
 import { ShopifyComponent } from './pages/shopify/shopify.component';
+import { provideCharts, withDefaultRegisterables } from 'ng2-charts';
+import { DatePipe } from '@angular/common';
+import { ChartComponent } from './components/chart/chart.component';
 
 @NgModule({
   declarations: [
@@ -52,7 +59,8 @@ import { ShopifyComponent } from './pages/shopify/shopify.component';
     QRCodeComponent,
     ProductComponent,
     UploadModalComponent,
-    ShopifyComponent
+    ShopifyComponent,
+    ChartComponent
   ],
   imports: [
     BrowserModule,
@@ -60,24 +68,30 @@ import { ShopifyComponent } from './pages/shopify/shopify.component';
     ReactiveFormsModule,
     AppRoutingModule,
     DragDropModule,
+    MatDatepickerModule,
     MatDialogModule,
     MatFormFieldModule,
     MatInputModule,
+    MatNativeDateModule,
     MatProgressBarModule,
     MatProgressSpinnerModule,
+    MatSelectModule,
     MatTableModule,
+    // NgChartsModule,
     provideFirebaseApp(() => initializeApp(environment.firebase)),
     provideAuth(() => getAuth()),
     provideAnalytics(() => getAnalytics()),
     provideFirestore(() => getFirestore()),
     provideFunctions(() => getFunctions()),
-    provideStorage(() => getStorage())
+    provideStorage(() => getStorage()),
   ],
   providers: [
+    DatePipe,
     provideAnimationsAsync('noop'),
     ScreenTrackingService,
     UserTrackingService,
-    provideAnimationsAsync()
+    provideAnimationsAsync(),
+    provideCharts(withDefaultRegisterables())
   ],
   bootstrap: [AppComponent]
 })

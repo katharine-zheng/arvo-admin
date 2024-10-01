@@ -4,5 +4,36 @@
   </div>
 </ng-container>
 <ng-container *ngIf="!isLoading">
-  <button (click)="openUploadModal()">Upload videos</button>
+  <mat-form-field appearance="fill">
+    <mat-label>Select Date Range</mat-label>
+    <mat-select [(ngModel)]="selectedDateRange" (selectionChange)="onDateRangeSelect($event.value)">
+      <mat-option value="7">Last 7 days</mat-option>
+      <mat-option value="30">Last 30 days</mat-option>
+      <mat-option value="custom">Custom</mat-option>
+    </mat-select>
+  </mat-form-field>
+
+  <ng-container *ngIf="selectedDateRange === 'custom'">
+    <mat-form-field appearance="fill">
+      <mat-label>Start Date</mat-label>
+      <input matInput [matDatepicker]="startPicker" [(ngModel)]="dateRange.start"  [max]="maxDateLimit" [min]="minDateLimit">
+      <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
+      <mat-datepicker #startPicker></mat-datepicker>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>End Date</mat-label>
+      <input matInput [matDatepicker]="endPicker" [(ngModel)]="dateRange.end" [max]="maxDateLimit" [min]="minDateLimit">
+      <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
+      <mat-datepicker #endPicker></mat-datepicker>
+    </mat-form-field>
+
+    <button mat-raised-button color="primary" (click)="onDateRangeChange()">Update Chart</button>
+  </ng-container>
+
+  <!-- Multiple chart components -->
+  <app-chart [id]="'chart1'" [labels]="chart1Labels" [dataset]="chart1Dataset"></app-chart>
+  <app-chart [id]="'chart2'" [labels]="chart2Labels" [dataset]="chart2Dataset"></app-chart>
+
+  <!-- <button (click)="openUploadModal()">Upload videos</button> -->
 </ng-container>
