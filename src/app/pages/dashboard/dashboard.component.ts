@@ -101,10 +101,10 @@ export class DashboardComponent implements OnInit {
   }
 
   async getGAReport(chartId: number, metrics: string) {
-    const key = `${this.startDateString}_${this.endDateString}_${metrics}`;
-    const params = {
+    const key = `${chartId}_${this.startDateString}_${this.endDateString}_${metrics}`;
+    const params: any = {
       dateRanges: [{ startDate: this.startDateString, endDate: this.endDateString }],
-      dimensions: [{ name: 'date' }],
+      dimensions: [{ name: 'date' }, {name: "streamId"}],
       metrics: [{ name: metrics }]
     };
   

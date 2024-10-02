@@ -22,6 +22,8 @@ export class MediaComponent implements OnInit {
   public products: any[] = [];
   public journeys: any[] = [];
   public tags: string[] = [];
+  public view: 'grid' | 'table' = 'table';
+  public displayedColumns: string[] = ['select', 'image', 'name', 'tags'];
   public selectedProductId: string = "";
   public selectedTag: string = "";
   public searchTerm: string = "";
@@ -47,6 +49,10 @@ export class MediaComponent implements OnInit {
 
   async fetchProducts() {
     this.products = await this.db.getProducts();
+  }
+
+  setView(view: 'grid' | 'table') {
+    this.view = view;
   }
 
   filterMediaWithoutTags(): void {

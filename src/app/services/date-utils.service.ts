@@ -1,4 +1,6 @@
 import { Injectable } from '@angular/core';
+import { parse, format, addDays } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 
 @Injectable({
   providedIn: 'root'
@@ -24,16 +26,14 @@ export class DateUtilsService {
   }
 
   formatDateForDisplay(dateStr: string): string {
-    // Extract year, month, and day from the YYYYMMDD string
-    const year = dateStr.substring(0, 4);
-    const month = dateStr.substring(4, 6);
-    const day = dateStr.substring(6, 8);
-  
-    // Create a Date object from the extracted parts
-    const date = new Date(`${year}-${month}-${day}`);
-  
-    // Format the date into a human-readable format (e.g., "Sep 17")
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    // Assuming dateStr is in the format 'YYYYMMDD'
+    const date = parse(dateStr, 'yyyyMMdd', new Date());
+
+    // Convert to local timezone (if needed)
+    const localDate = toZonedTime(date, Intl.DateTimeFormat().resolvedOptions().timeZone);
+
+    // Format the date for display (e.g., 'Sep 29')
+    return format(localDate, 'MMM dd');
   }
 
   // Generate all dates between startDate and endDate (in YYYYMMDD format)

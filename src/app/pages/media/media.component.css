@@ -1,0 +1,5 @@
+.table-view .thumbnail,
+.table-view .thumbnail img {
+  height: auto;
+  width: 70px;
+}

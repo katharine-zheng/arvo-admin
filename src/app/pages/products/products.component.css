@@ -16,15 +16,3 @@
   border: 1px solid #ccc;
   padding: 10px;
 }
-
-.table-view .thumbnail {
-  border: thin solid #eee;
-  border-radius: 8px;
-  margin: 0;
-}
-
-.table-view .thumbnail,
-.table-view .thumbnail img {
-  height: auto;
-  width: 40px;
-}

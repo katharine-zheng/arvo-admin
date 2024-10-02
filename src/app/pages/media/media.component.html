@@ -35,6 +35,11 @@
       <button (click)="clearSearch()">Clear</button>
     </div>
 
+    <div class="view-toggle">
+      <button (click)="setView('grid')">Grid View</button>
+      <button (click)="setView('table')">Table View</button>
+    </div>
+
     <ng-container *ngIf="tags && tags.length > 0">
       <div class="tags">
         <label>Filter: </label>
@@ -64,36 +69,80 @@
       <!-- </ng-container> -->
     </ng-container>
 
-    <div class="videos-grid">
-      <!-- <div class="grid-item" *ngFor="let media of filteredMedia"> -->
-      <div *ngFor="let media of filteredMedia;  trackBy: trackByMedia" 
-        (click)="onMediaSelected(media)" 
-        [ngClass]="{'selected': isSelected(media)}" 
-        class="video-grid-item">
+    <ng-container *ngIf="view === 'table'" >
+      <div class="table-view">
+        <table mat-table [dataSource]="filteredMedia">
+          <ng-container matColumnDef="select">
+            <th mat-header-cell *matHeaderCellDef></th>
+            <td mat-cell *matCellDef="let media">
+              <input type="checkbox">
+            </td>
+          </ng-container>
 
-        <!-- <input type="checkbox" (change)="toggleSelection(media, $event)" [checked]="selectedMedia.includes(media)"/> -->
-        <div class="video-thumbnail">
-          <img *ngIf="media.thumbnailUrl; else placeholder" [src]="media.thumbnailUrl" alt="{{ media.originalName }}">
-          <ng-template #placeholder>
-            <div class="image-placeholder">No Image Available</div>
-          </ng-template>
-        </div>
+          <ng-container matColumnDef="image">
+            <th mat-header-cell *matHeaderCellDef>Video</th>
+            <td mat-cell *matCellDef="let media">
+              <div class="thumbnail">
+                <img *ngIf="media.thumbnailUrl; else placeholder" [src]="media.thumbnailUrl" alt="{{ media.originalName }}">
+                <ng-template #placeholder>
+                  <div class="image-placeholder">No Image Available</div>
+                </ng-template>
+              </div>
+            </td>
+          </ng-container>
 
-        <!-- Product Details -->
-        <div class="item-details">
-          <p>{{media.originalName}}</p>
-          <div class="product-actions">
-            <div>
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef> Name </th>
+            <td mat-cell *matCellDef="let media">{{ media.originalName }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="tags">
+            <th mat-header-cell *matHeaderCellDef> Tags </th>
+            <td mat-cell *matCellDef="let media">
               <ng-container *ngIf="media.tags && media.tags.length > 0">
-                <button>Tag: <span *ngFor="let tag of media.tags">{{tag}}, </span></button>
+                <button><span *ngFor="let tag of media.tags">{{tag}}, </span></button>
               </ng-container>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+      </div>
+    </ng-container>
+
+    <ng-container *ngIf="view === 'grid'" >
+      <div class="videos-grid">
+        <!-- <div class="grid-item" *ngFor="let media of filteredMedia"> -->
+        <div *ngFor="let media of filteredMedia; trackBy: trackByMedia" 
+          (click)="onMediaSelected(media)" 
+          [ngClass]="{'selected': isSelected(media)}" 
+          class="video-grid-item">
+
+          <!-- <input type="checkbox" (change)="toggleSelection(media, $event)" [checked]="selectedMedia.includes(media)"/> -->
+          <div class="video-thumbnail">
+            <img *ngIf="media.thumbnailUrl; else placeholder" [src]="media.thumbnailUrl" alt="{{ media.originalName }}">
+            <ng-template #placeholder>
+              <div class="image-placeholder">No Image Available</div>
+            </ng-template>
+          </div>
+
+          <!-- Product Details -->
+          <div class="item-details">
+            <p>{{media.originalName}}</p>
+            <div class="product-actions">
+              <div>
+                <ng-container *ngIf="media.tags && media.tags.length > 0">
+                  <button>Tag: <span *ngFor="let tag of media.tags">{{tag}}, </span></button>
+                </ng-container>
+              </div>
+              <!-- <button mat-raised-button color="warn" (click)="openDeleteModal(media)" [disabled]="isDeleting">
+                {{ media.isDeleting ? 'Deleting...' : 'Delete' }}
+              </button> -->
             </div>
-            <!-- <button mat-raised-button color="warn" (click)="openDeleteModal(media)" [disabled]="isDeleting">
-              {{ media.isDeleting ? 'Deleting...' : 'Delete' }}
-            </button> -->
           </div>
         </div>
       </div>
-    </div>
+    </ng-container>
   </ng-container>
 </ng-container>
