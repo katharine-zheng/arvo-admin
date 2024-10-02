@@ -26,7 +26,6 @@ export const getReport = onCall(
   async (request: CallableRequest<any>) => {
     // TODO this is for arvo-prod
     const propertyId = "457488060";
-    const streamId = "9667212045";
 
     try {
       // Ensure secrets are available
@@ -52,17 +51,14 @@ export const getReport = onCall(
         property: `properties/${propertyId}`,
         dateRanges: request.data.dateRanges,
         metrics: request.data.metrics,
-        dimensions: [{name: "streamId"}],
-        dimensionFilter: {
-          filter: {
-            fieldName: "streamId",
-            stringFilter: {matchType: "EXACT", value: streamId},
-          },
-        },
       };
 
       if (request.data.dimensions) {
         reportRequest.dimensions = request.data.dimensions;
+      }
+
+      if (request.data.dimensionFilter) {
+        reportRequest.dimensionFilter = request.data.dimensionFilter;
       }
 
       const [response] = await analyticsDataClient.runReport(reportRequest);
