@@ -3,6 +3,7 @@ import { User } from '@angular/fire/auth';
 import { Firestore, QueryConstraint, addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, limit, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from '@angular/fire/firestore';
 import { BehaviorSubject } from 'rxjs';
 import { QRCODE } from '../constants/qrcode';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
@@ -21,6 +22,10 @@ export class DbService {
   public currentProduct = this.productSource.asObservable();
   private journeySource = new BehaviorSubject<any>(null);
   public currentJourney = this.journeySource.asObservable();
+
+  get projectId(): string {
+    return environment.firebase.projectId;
+  }
 
   get account() {
     return this._account;
@@ -96,7 +101,7 @@ export class DbService {
     }
   }
 
-  async createAccount(fbUser: any, platform?: any) {
+  async createAccount(fbUser: any, platform?: any): Promise<boolean> {
     const newUser = this.setNewAccount(fbUser);
     if (newUser && newUser.id) {
       const dateCreated = serverTimestamp();
@@ -104,7 +109,6 @@ export class DbService {
       newUser['dateLastLogin'] = dateCreated;
       newUser['dateUpdated'] = dateCreated;
       newUser['platforms'] = platform ?? {}; //TODO test
-
       try {
         const userRef = doc(this.firestore, "accounts", newUser.id);
         const docSnap = await getDoc(userRef);
@@ -113,13 +117,18 @@ export class DbService {
           throw new Error(`Account document with id ${newUser.id} already exists.`);
         }
         await setDoc(userRef, newUser);
+        return true;
       } catch (error) {
+        console.error(error);
         // this.handleError(error);
         // await this.logError(error, "Admin.DbService.createAccount");
         // const customErrorMessage: string = this.handleError(error);
         // throw new Error(customErrorMessage);
       }
+    } else {
+      console.error("user is null");
     }
+    return false;
   }
 
   async updateAccount(data: any) {

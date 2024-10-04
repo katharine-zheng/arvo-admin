@@ -58,11 +58,10 @@ export class ShopifyComponent {
           }
 
           queryParamsArray.push(`state=${this.db.account.id}`);
-
-          let oauthUrl = `https://us-central1-arvo-prod.cloudfunctions.net/shopifyInitAuth?`;
+          let projectId: string = this.db.projectId;
+          let oauthUrl = `https://us-central1-${projectId}.cloudfunctions.net/shopifyInitAuth?`;
           oauthUrl += queryParamsArray.join('&');
-          // this.auth.saveSession();
-          this.isLoading = false;
+
           // Redirect to the final Firebase Function URL with query parameters
           window.location.href = oauthUrl;
         }

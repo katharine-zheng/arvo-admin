@@ -62,9 +62,15 @@ export class AuthService {
   async register(email: string, password: string, platform?: any): Promise<void> {
     try {
       const userCredential = await createUserWithEmailAndPassword(this.auth, email, password);
-      await this.dbService.createAccount(userCredential.user, platform);
-      this.router.navigate(['/dashboard']);
-      this.authState.next(true);
+      if (userCredential && userCredential.user) {
+        const added = await this.dbService.createAccount(userCredential.user, platform);
+        if (added) {
+          this.router.navigate(['/dashboard']);
+          this.authState.next(true);
+        } else {
+          console.error("account not added");
+        }
+      }
     } catch (error) {
       console.error('Registration failed:', error);
       throw error;

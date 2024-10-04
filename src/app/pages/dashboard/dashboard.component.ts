@@ -41,7 +41,9 @@ export class DashboardComponent implements OnInit {
     this.db.currentAccount.subscribe((account: any) => {
       if (account) {
         this.account = account;
-        this.initCharts();
+        if (this.account.mediaList && this.account.mediaList.length > 0) {
+          this.initCharts();
+        }
       }
     });
   }

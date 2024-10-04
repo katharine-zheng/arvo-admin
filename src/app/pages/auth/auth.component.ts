@@ -10,10 +10,11 @@ import { DbService } from '../../services/db.service';
 })
 export class AuthComponent {
 
+  public email: string = "";
+  public password: string = "";
+  public isLoginMode: boolean = true; // Toggle between login and registration
+  public platforms: any = {};
   private params: any;
-  email = "";
-  password = "";
-  isLoginMode = true; // Toggle between login and registration
 
   constructor(private route: ActivatedRoute, private router: Router, private auth: AuthService, private db: DbService) {}
 
@@ -23,6 +24,7 @@ export class AuthComponent {
       const shop = params['shop'];
       const hmac = params['hmac'];
       if (shop && hmac) {
+        this.platforms.shopify = true;
       } else if (this.auth.uid) {
         this.router.navigate(['/dashboard']);
       }
@@ -48,6 +50,8 @@ export class AuthComponent {
   async onSubmit(): Promise<void> {
     if (this.isLoginMode) {
       await this.auth.login(this.email, this.password);
+    } else if (this.platforms.shopify) {
+      await this.auth.register(this.email, this.password, this.platforms);
     } else {
       await this.auth.register(this.email, this.password);
     }
