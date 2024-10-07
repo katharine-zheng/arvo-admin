@@ -26,7 +26,7 @@ export class ProductComponent implements OnInit {
   constructor(private route: ActivatedRoute, private fb: FormBuilder, private changeRef: ChangeDetectorRef, private db: DbService) {
     this.productForm = this.fb.group({
       name: ['', Validators.required],  // Add the name field
-      mediaList: [[]],
+      videos: [[]],
     });
   }
 
@@ -49,7 +49,7 @@ export class ProductComponent implements OnInit {
         this.productForm.patchValue({
           name: product.name,
         });
-        this.productForm.controls['mediaList'].setValue(product.mediaList);
+        this.productForm.controls['videos'].setValue(product.videos);
         this.preselectMedia();
       } else {
         this.setDisplayMode('all');
@@ -58,9 +58,9 @@ export class ProductComponent implements OnInit {
   }
 
   drop(event: CdkDragDrop<any[]>) {
-    const mediaList = this.productForm.controls['mediaList'].value;
-    moveItemInArray(mediaList, event.previousIndex, event.currentIndex);
-    this.productForm.controls['mediaList'].setValue(mediaList);
+    const videos = this.productForm.controls['videos'].value;
+    moveItemInArray(videos, event.previousIndex, event.currentIndex);
+    this.productForm.controls['videos'].setValue(videos);
     this.saveProduct();
   }
 
@@ -80,7 +80,7 @@ export class ProductComponent implements OnInit {
     this.availableTags = this.db.mediaTags;
 
     // If product data is already loaded and media need to be preselected
-    this.selectedMedia = this.productForm.controls['mediaList'].value ?? [];
+    this.selectedMedia = this.productForm.controls['videos'].value ?? [];
     if (this.selectedMedia && this.selectedMedia.length > 0) {
       this.setDisplayMode('selected');
       this.preselectMedia();
@@ -104,7 +104,6 @@ export class ProductComponent implements OnInit {
     }
   }
 
-  // Filter media by the selected tag
   filterMediaByTag(tag: string) {
     this.selectedTag = tag;
     if (this.selectedTag && this.selectedTag !== '') {
@@ -135,12 +134,11 @@ export class ProductComponent implements OnInit {
   }
 
   onMediaSelect(event: any, media: any) {
-    const selectedMedia = this.productForm.controls['mediaList'].value as any[];
-  
+    const selectedMedia = this.productForm.controls['videos'].value as any[];
     if (event.target.checked) {
-      this.productForm.controls['mediaList'].setValue([...selectedMedia, media]);
+      this.productForm.controls['videos'].setValue([...selectedMedia, media]);
     } else {
-      this.productForm.controls['mediaList'].setValue(selectedMedia.filter(v => v.id !== media.id));
+      this.productForm.controls['videos'].setValue(selectedMedia.filter(v => v.id !== media.id));
     }
   }
 
@@ -152,7 +150,7 @@ export class ProductComponent implements OnInit {
     } else {
       this.selectedMedia.push(media);
     }
-    this.productForm.controls['mediaList'].setValue(this.selectedMedia);
+    this.productForm.controls['videos'].setValue(this.selectedMedia);
   }
 
   isSelected(media: any): boolean {
@@ -175,12 +173,12 @@ export class ProductComponent implements OnInit {
     if (this.productForm.valid) {
       const name = this.productForm.value.name;
       const nameExists = this.nameExists(name);
-      const mediaList = this.productForm.value.mediaList;
+      const videos = this.productForm.value.videos;
       const product: any = {
         accountId: this.account.id,
         name: name,
-        mediaList: mediaList,
-        mediaIds: mediaList.map((media: any) => media.id),
+        videos: videos,
+        videoIds: videos.map((media: any) => media.id),
       };
 
       if (nameExists) {

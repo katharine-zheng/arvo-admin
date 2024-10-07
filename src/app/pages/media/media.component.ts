@@ -23,7 +23,7 @@ export class MediaComponent implements OnInit {
   public journeys: any[] = [];
   public tags: string[] = [];
   public view: 'grid' | 'table' = 'table';
-  public displayedColumns: string[] = ['select', 'image', 'name', 'tags'];
+  public displayedColumns: string[] = ['select', 'image', 'name', 'tags', 'type'];
   public selectedProductId: string = "";
   public selectedTag: string = "";
   public searchTerm: string = "";
@@ -55,11 +55,22 @@ export class MediaComponent implements OnInit {
     this.view = view;
   }
 
-  filterMediaWithoutTags(): void {
+  getMediaType(media: any) {
+    if (media.type) {
+      if (media.type.includes("video")) {
+        return "Video";
+      } else if (media.type.includes("image")) {
+        return "Image";
+      }
+    }
+    return "";
+  }
+
+  filterWithoutTags(): void {
     this.filteredMedia = this.allMedia.filter(media => !media.tags || media.tags.length === 0);
   }
 
-  filterMedia() {
+  filterBySearchTerm() {
     if (this.searchTerm) {
       this.filteredMedia = this.allMedia.filter(media =>
         media.originalName.toLowerCase().includes(this.searchTerm.toLowerCase())
@@ -69,18 +80,26 @@ export class MediaComponent implements OnInit {
     }
   }
 
-  clearSearch() {
-    this.searchTerm = "";
-    this.filteredMedia = [...this.allMedia];
-  }
-
-  filterMediaByTag(tag: string) {
+  filterByTag(tag: string) {
     this.selectedTag = tag;
     if (this.selectedTag && this.selectedTag !== '') {
       this.filteredMedia = this.allMedia.filter(media => media.tags.includes(this.selectedTag));
     } else {
       this.filteredMedia = this.allMedia;
     }
+  }
+
+  filterByType(type: string) {
+    if (type) {
+      this.filteredMedia = this.allMedia.filter(media => media.type.includes(type));
+    } else {
+      this.filteredMedia = this.allMedia;
+    }
+  }
+
+  clearSearch() {
+    this.searchTerm = "";
+    this.filteredMedia = [...this.allMedia];
   }
 
   async loadTags() {
@@ -319,7 +338,14 @@ export class MediaComponent implements OnInit {
     // Iterate over each selected media and delete it
     this.selectedMedia.forEach(async (media, index) => {
       try {
-        await this.storage.deleteMedia(media);
+        let folder = "";
+        //TODO handle audio
+        if (media.type.includes("video")) {
+          folder = "videos";
+        } else if (media.type.includes("image")) {
+          folder = "images";
+        }
+        await this.storage.deleteMedia(media, folder);
         this.allMedia = this.allMedia.filter(v => v.id !== media.id);
         if (index === this.selectedMedia.length - 1) {
           this.selectedMedia = [];
@@ -331,6 +357,7 @@ export class MediaComponent implements OnInit {
         this.isDeleting = false;
       }
       this.isLoading = false;
+      this.changeRef.detectChanges();
     });
   }
 }

@@ -10,41 +10,42 @@ export class StorageService {
 
   constructor(private storage: Storage, private db: DbService) {}
 
-  uploadMedia(file: File, thumbnailUrl: string, accountId: string, productId?: string, journeyId?: string, tag?: string): Observable<any> {
+  uploadMedia(file: File, folder: string, accountId: string, productId?: string, journeyId?: string, tag?: string): Observable<any> {
     return new Observable<any>((observer) => {
       const fileName = `${Date.now()}_${file.name}`;
-      const filePath = `media/${accountId}/${fileName}`; // Single storage path
+      const filePath = `${accountId}/${folder}/${fileName}`; // Single storage path
       const storageRef = ref(this.storage, filePath);
       const uploadTask = uploadBytesResumable(storageRef, file);
-
-      uploadTask.on(
-        'state_changed',
-        (snapshot) => {
+      const isVideo = folder === "videos";
+      uploadTask.on('state_changed', (snapshot) => {
           const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
           observer.next({ progress, downloadURL: null }); // Emit progress updates
-        },
-        (error) => {
+        }, (error) => {
           observer.error(error);
-        },
-        () => {
+        }, () => {
           getDownloadURL(uploadTask.snapshot.ref).then(async (downloadURL) => {
             // Save metadata in Firestore
-            const data = {
+            const data: any = {
               name: fileName,
+              type: file.type,
               accountId: accountId,
               // journeys: productId ? [journeyId] : [],
               originalName: file.name,
               // products: productId ? [productId] : [],
               tags: [],
-              thumbnailUrl: thumbnailUrl,
-              type: 'video',
               uploadTime: Date.now(),
               url: downloadURL,
             };
 
-            const mediaId = await this.db.addMedia(data);
-            await this.uploadThumbnail(thumbnailUrl, fileName, mediaId, accountId);
-            // await this.db.saveMediaThumbnail(mediaId, downloadURL);
+            if (isVideo) {
+              const thumbnailUrl = await this.captureVideoThumbnail(file);
+              data.thumbnailUrl = thumbnailUrl;
+              const mediaId = await this.db.addMedia(data);
+              await this.uploadThumbnail(thumbnailUrl, fileName, mediaId, accountId);
+            } else {
+              await this.db.addMedia(data);
+            }
+
             observer.next({ progress: 100, downloadURL, media: data });
             observer.complete();
           });
@@ -54,17 +55,19 @@ export class StorageService {
   }
 
   // Method to delete a media from Firebase Storage and Firestore
-  async deleteMedia(media: any) {
+  async deleteMedia(media: any, folder: string) {
     const mediaId = media.id;
-    const path = `media/${media.accountId}/${media.name}`;
-    const thumbnailPath = `thumbnails/${media.accountId}/${media.name}.jpg`;
+    const path = `${media.accountId}/${folder}/${media.name}`;
     const storageRef = ref(this.storage, path);
-    const thumbnailRef = ref(this.storage, thumbnailPath);
-
+    
     // First, delete the media from Firebase Storage
     try {
       await deleteObject(storageRef);
-      await deleteObject(thumbnailRef);
+      if (folder === 'videos') {
+        const thumbnailPath = `${media.accountId}/${folder}/${media.name}_thumbnail.jpg`;
+        const thumbnailRef = ref(this.storage, thumbnailPath);
+        await deleteObject(thumbnailRef);
+      }
       await this.db.deleteMedia(mediaId);
     } catch (error) {
       console.error('Error deleting media:', error);
@@ -73,7 +76,7 @@ export class StorageService {
 
   uploadThumbnail(thumbnailDataURL: string, fileName: string, mediaId: string, accountId: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      const storageRef = ref(this.storage, `thumbnails/${accountId}/${fileName}.jpg`);
+      const storageRef = ref(this.storage, `${accountId}/videos/${fileName}_thumbnail.jpg`);
       
       // Convert base64 data URL to Blob
       fetch(thumbnailDataURL)
@@ -97,5 +100,37 @@ export class StorageService {
         });
     });
   }
+
+  captureVideoThumbnail(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const media = document.createElement('video');
+      media.src = URL.createObjectURL(file);
+      media.crossOrigin = 'anonymous';
+      media.currentTime = 5; // Capture frame at 5 seconds or wherever you prefer
+  
+      // When media is loaded and ready
+      media.onloadeddata = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = media.videoWidth;
+        canvas.height = media.videoHeight;
+  
+        const context = canvas.getContext('2d');
+        if (context) {
+          context.drawImage(media, 0, 0, canvas.width, canvas.height);
+  
+          // Convert canvas to a data URL (base64 image)
+          const thumbnailUrl = canvas.toDataURL('image/jpeg');
+          resolve(thumbnailUrl); // Resolve the promise with the thumbnail data URL
+        } else {
+          reject('Could not capture thumbnail');
+        }
+      };
+  
+      media.onerror = (error) => {
+        reject('Error loading video: ' + error);
+      };
+    });
+  }
+
   
 }

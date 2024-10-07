@@ -12,6 +12,19 @@ nav {
 html, body { height: 100%; }
 body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
 
+button.button-select {
+  border-color: #eee;
+  border-style: solid;;
+  border-width: thin;
+  height: 20px;
+  width: 20px;
+}
+
+button.button-select.selected {
+  background-color: #007bff;
+  border-color: #007bff;
+}
+
 .grid-container {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));

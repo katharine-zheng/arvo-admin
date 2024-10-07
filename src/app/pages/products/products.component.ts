@@ -16,7 +16,7 @@ export class ProductsComponent implements OnInit {
   public isLoading: boolean = false;
   public searchTerm: string = "";
   public importedProducts: any[] = [];
-  public displayedColumns: string[] = ['image', 'name', 'media', 'actions', 'qr code'];
+  public displayedColumns: string[] = ['image', 'name', 'media', 'actions', 'qr code', 'link'];
   public view: 'grid' | 'table' = 'table';
   public products: any[] = [];
   public filteredProducts: any[] = [];
@@ -37,7 +37,6 @@ export class ProductsComponent implements OnInit {
   async getProducts() {
     this.isLoading = true;
     this.products = await this.db.getProducts();
-    console.log(this.products);
     this.filteredProducts = this.products;
     this.isLoading = false;
   }
@@ -49,6 +48,15 @@ export class ProductsComponent implements OnInit {
     } else {
       this.db.setProductData(null);
       this.router.navigate(['/product']);
+    }
+  }
+
+  openJourney(product: any, journeyId?: string) {
+    this.db.setProductData(product);
+    if (journeyId) {
+      this.router.navigate(['/journey', journeyId]);
+    } else {
+      this.router.navigate(['/products', product.id, 'journey']);
     }
   }
 
@@ -71,11 +79,6 @@ export class ProductsComponent implements OnInit {
     this.view = view;
   }
 
-  openJourney(product: any) {
-    this.db.setProductData(product);  // Set the product data in the service
-    this.router.navigate(['/products', product.id, 'journey']);
-  }
-
   openQRCodeModal(product: any) {
     const dialogRef = this.dialog.open(QRCodeComponent, {
       width: '350px',
@@ -92,6 +95,11 @@ export class ProductsComponent implements OnInit {
     });
   }
 
+  openLink(product: any) {
+    let url = `https://${this.db.projectId}.web.app/p/${product.id}`
+    window.open(url, "_blank");
+  }
+
   openProductForm() {
     const dialogRef = this.dialog.open(ProductFormComponent, {
       width: '600px',
@@ -102,8 +110,8 @@ export class ProductsComponent implements OnInit {
 
     dialogRef.afterClosed().subscribe(async result => {
       if (result) {
-        result['mediaList'] = [];
-        result['mediaIds'] = [];
+        result['videos'] = [];
+        result['videoIds'] = [];
         this.products.push(result);
         this.createProduct(result);
       }
@@ -125,18 +133,19 @@ export class ProductsComponent implements OnInit {
     });
   }
 
-  openDeleteDialog(product: any) {
-    const dialogRef = this.dialog.open(DeleteDialogComponent, {
-      width: '400px',
-      data: { name: product.name } // Pass the product name to the dialog
-    });
+  // note for non shopify products
+  // openDeleteDialog(product: any) {
+  //   const dialogRef = this.dialog.open(DeleteDialogComponent, {
+  //     width: '400px',
+  //     data: { name: product.name } // Pass the product name to the dialog
+  //   });
 
-    dialogRef.afterClosed().subscribe(result => {
-      if (result) {
-        this.deleteProduct(product.id); // Call the delete method if the user confirms
-      }
-    });
-  }
+  //   dialogRef.afterClosed().subscribe(result => {
+  //     if (result) {
+  //       this.deleteProduct(product.id); // Call the delete method if the user confirms
+  //     }
+  //   });
+  // }
 
   async createProduct(product: any) {
     this.isLoading = true;
@@ -160,10 +169,11 @@ export class ProductsComponent implements OnInit {
     }
   }
 
-  async deleteProduct(productId: string) {
-    this.isLoading = true;
-    await this.db.deleteDocument("products", productId);
-    this.products = this.products.filter(product => product.id !== productId);
-    this.isLoading = false;
-  }
+  // note also delete journeys - for non shopify products
+  // async deleteProduct(productId: string) {
+  //   this.isLoading = true;
+  //   await this.db.deleteDocument("products", productId);
+  //   this.products = this.products.filter(product => product.id !== productId);
+  //   this.isLoading = false;
+  // }
 }

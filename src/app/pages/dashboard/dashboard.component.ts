@@ -41,9 +41,7 @@ export class DashboardComponent implements OnInit {
     this.db.currentAccount.subscribe((account: any) => {
       if (account) {
         this.account = account;
-        if (this.account.mediaList && this.account.mediaList.length > 0) {
-          this.initCharts();
-        }
+        this.initCharts();
       }
     });
   }
@@ -106,8 +104,8 @@ export class DashboardComponent implements OnInit {
     const key = `${chartId}_${this.startDateString}_${this.endDateString}_${metrics}`;
     const params: any = {
       dateRanges: [{ startDate: this.startDateString, endDate: this.endDateString }],
-      dimensions: [{ name: 'date' }, {name: "streamId"}],
       metrics: [{ name: metrics }]
+      // metrics: [{ name: metrics }, {name: 'eventCount'}]
     };
   
     const response: any = await this.analytics.getGAReport(key, params);

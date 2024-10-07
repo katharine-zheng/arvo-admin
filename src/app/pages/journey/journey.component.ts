@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
@@ -23,15 +23,17 @@ export class JourneyComponent implements OnInit {
   ];
   
   private account: any;
+  private product: any;
   private journeyId: string | undefined;
   private allMedia: any[] = [];
   private filteredMedia: any[] = [];  // List of media filtered by tag
 
-  constructor(private route: ActivatedRoute, private fb: FormBuilder, private db: DbService) {
+  constructor(private route: ActivatedRoute, private fb: FormBuilder, private changeRef: ChangeDetectorRef, private db: DbService) {
     this.journeyForm = this.fb.group({
-      name: ['', Validators.required],  // Add the name field
-      type: ['prePurchase', Validators.required],
-      mediaList: [[], Validators.required],
+      name: ['', Validators.required],
+      type: ['', Validators.required],
+      videos: [[]],
+      images: [[]],
       tagFilter: [''] 
     });
   }
@@ -39,7 +41,9 @@ export class JourneyComponent implements OnInit {
   ngOnInit(): void {
     this.journeyId = this.route.snapshot.paramMap.get('id') || '';
 
-    if (!this.journeyId) {
+    if (this.journeyId) {
+      this.getJourney();
+    } else {
       this.setDisplayMode('all');
     }
 
@@ -50,6 +54,19 @@ export class JourneyComponent implements OnInit {
       }
     });
 
+    this.db.currentProduct.subscribe(product => {
+      if (product) {
+        this.product = product;
+        if (!this.product.journeys || this.product.journeys.length < 1) {
+          this.journeyForm.controls['name'].setValue(`${this.product.name} Post Purchase`);
+          this.journeyForm.controls['type'].setValue('postPurchase');
+        }
+        this.preselectMedia();
+      } else {
+        this.setDisplayMode('all');
+      }
+    });
+
     this.db.currentJourney.subscribe(journey => {
       if (journey) {
         this.journey = journey;
@@ -57,7 +74,7 @@ export class JourneyComponent implements OnInit {
           name: journey.name,
           type: journey.type,
         });
-        this.journeyForm.controls['mediaList'].setValue(journey.mediaList);
+        this.journeyForm.controls['videos'].setValue(journey.videos);
         this.preselectMedia();
       } else {
         this.setDisplayMode('all');
@@ -65,21 +82,28 @@ export class JourneyComponent implements OnInit {
     });
 
     this.journeyForm.get('tagFilter')?.valueChanges.subscribe(tag => {
-      this.selectedTag = tag;
-      this.filterMediaByTag();  // Filter media when the tag changes
+      this.filterMediaByTag(tag);
     });
+  }
+
+  async getJourney() {
+    try {
+      this.journey = await this.db.getJourney(this.journeyId!);
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   // Method to handle the drag-and-drop event
   drop(event: CdkDragDrop<any[]>) {
-    const mediaList = this.journeyForm.controls['mediaList'].value;
-    moveItemInArray(mediaList, event.previousIndex, event.currentIndex);
-    this.journeyForm.controls['mediaList'].setValue(mediaList);
+    const videos = this.journeyForm.controls['videos'].value;
+    moveItemInArray(videos, event.previousIndex, event.currentIndex);
+    this.journeyForm.controls['videos'].setValue(videos);
     this.saveJourney();
   }
 
   clearFilters() {
-    this.journeyForm.controls['tagFilter'].setValue('');  // Clear tag filter
+    // this.journeyForm.controls['tagFilter'].setValue('');  // Clear tag filter
     this.filteredMedia = [...this.allMedia];  // Reset to show all media
     this.displayedMedia = [...this.allMedia];
     this.displayMode = 'all';  // Reset display mode to 'all'
@@ -93,7 +117,7 @@ export class JourneyComponent implements OnInit {
     this.availableTags = this.db.mediaTags;
 
     // If journey data is already loaded and media need to be preselected
-    this.selectedMedia = this.journeyForm.controls['mediaList'].value ?? [];
+    this.selectedMedia = this.journeyForm.controls['videos'].value ?? [];
     if (this.selectedMedia && this.selectedMedia.length > 0) {
       this.setDisplayMode('selected');
       this.preselectMedia();
@@ -117,14 +141,17 @@ export class JourneyComponent implements OnInit {
     }
   }
 
-  // Filter media by the selected tag
-  filterMediaByTag() {
+  filterMediaByTag(tag: string) {
+    this.selectedTag = tag;
     if (this.selectedTag && this.selectedTag !== '') {
       this.filteredMedia = this.allMedia.filter(media => media.tags.includes(this.selectedTag));
       this.displayedMedia = this.filteredMedia;
     } else {
+      // If no tag is selected, show all media
       this.filteredMedia = this.allMedia;
+      this.displayedMedia = this.filteredMedia;
     }
+    this.changeRef.detectChanges();
   }
 
   updatedisplayedMedia() {
@@ -143,14 +170,14 @@ export class JourneyComponent implements OnInit {
     }
   }
 
-  // onMediaSelect(event: any, media: any) {
-  //   const selectedMedia = this.journeyForm.controls['mediaList'].value as any[];
-  //   if (event.target.checked) {
-  //     this.journeyForm.controls['mediaList'].setValue([...selectedMedia, media]);
-  //   } else {
-  //     this.journeyForm.controls['mediaList'].setValue(selectedMedia.filter(v => v.id !== media.id));
-  //   }
-  // }
+  onMediaSelect(event: any, media: any) {
+    const selectedMedia = this.journeyForm.controls['videos'].value as any[];
+    if (event.target.checked) {
+      this.journeyForm.controls['videos'].setValue([...selectedMedia, media]);
+    } else {
+      this.journeyForm.controls['videos'].setValue(selectedMedia.filter(v => v.id !== media.id));
+    }
+  }
 
   onMediaSelected(media: any) {
     const index = this.selectedMedia.findIndex(v => v.id === media.id);
@@ -160,7 +187,7 @@ export class JourneyComponent implements OnInit {
     } else {
       this.selectedMedia.push(media);
     }
-    this.journeyForm.controls['mediaList'].setValue(this.selectedMedia);
+    this.journeyForm.controls['videos'].setValue(this.selectedMedia);
   }
 
   isSelected(media: any): boolean {
@@ -170,41 +197,51 @@ export class JourneyComponent implements OnInit {
     return false;
   }
 
-  nameExists(name: string) {
-    if (this.journey.name === name) {
-      return false;
-    }
-    const journeys = this.db.journeys;
-    let exists = journeys.some((j: any) => j.name === name);
-    return exists;
-  }
+  // note currently not used due to the limit of one journey
+  // nameExists(name: string) {
+  //   if (this.journey.name === name) {
+  //     return false;
+  //   }
+  //   const journeys = this.db.journeys;
+  //   let exists = journeys.some((j: any) => j.name === name);
+  //   return exists;
+  // }
 
   async saveJourney() {
     if (this.journeyForm.valid) {
       const name = this.journeyForm.value.name;
-      const nameExists = this.nameExists(name);
-      const mediaList = this.journeyForm.value.mediaList;
+      // const nameExists = this.nameExists(name);
+      const videos = this.journeyForm.value.videos;
       const journey: any = {
         accountId: this.account.id,
+        productId: this.product.id,
         name: name,
         type: this.journeyForm.value.type,
-        mediaList: mediaList,
-        mediaIds: mediaList.map((media: any) => media.id),
+        videos: videos,
+        videoIds: videos.map((media: any) => media.id),
       };
 
-      if (nameExists) {
-        console.error('name exists');
-      } else if (this.journey.id) {
-        this.db.updateJourney(this.journey.id, journey).then(() => {
-        }).catch(error => {
-          console.error('Error saving journey:', error);
-        });
+      if (this.journey && this.journey.id) {
+        await this.updateJourney(journey);
       } else {
-        this.db.createJourney(journey).then(() => {
-        }).catch(error => {
-          console.error('Error saving journey:', error);
-        });
+        await this.createJourney(journey);
       }
+    }
+  }
+
+  async createJourney(journey: any) {
+    try {
+      await this.db.createJourney(journey);
+    } catch (error) {
+      console.error('Error saving journey:', error);
+    }
+  }
+
+  async updateJourney(journey: any) {
+    try {
+      await this.db.updateJourney(this.journey.id, journey);
+    } catch (error) {
+      console.error('Error saving journey:', error);
     }
   }
 

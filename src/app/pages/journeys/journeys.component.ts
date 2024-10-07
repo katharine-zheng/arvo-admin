@@ -23,6 +23,7 @@ export class JourneysComponent {
   ngOnInit() {
     this.db.currentAccount.subscribe((account: any) => {
       if (account) {
+        this.account = account;
         this.getJourneys();
       }
     });
@@ -107,13 +108,14 @@ export class JourneysComponent {
 
     dialogRef.afterClosed().subscribe(result => {
       if (result) {
-        this.deleteJourney(journey.id); // Call the delete method if the user confirms
+        this.deleteJourney(journey); // Call the delete method if the user confirms
       }
     });
   }
 
-  async deleteJourney(journeyId: string) {
-    await this.db.deleteDocument("journeys", journeyId);
+  async deleteJourney(journey: any) {
+    const journeyId = journey.id;
+    await this.db.deleteJourney(journey);
     this.journeys = this.journeys.filter((journey: { id: string; }) => journey.id !== journeyId);
   }
 }

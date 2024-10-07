@@ -15,7 +15,7 @@ export class MediaUploadComponent {
   public uploadProgress: number = 0;
   public downloadURL: string | null = null;
   public isUploading: boolean = false;
-  public isDragging: boolean = false;  // State for drag-over effect
+  public isDragging: boolean = false;
 
   @Input() view: string = ""; 
   @Output() onMediaUploaded: EventEmitter<any> = new EventEmitter<any>();
@@ -56,7 +56,7 @@ export class MediaUploadComponent {
   }
 
   onFilesSelected(event: any, autoUpload: boolean): void {
-    this.selectedFiles = Array.from(event.target.files); // Collect selected files
+    this.selectedFiles = Array.from(event.target.files);
     this.uploadingMedia = this.selectedFiles.map((file) => ({ file, uploadProgress: 0 }));
 
     if (autoUpload) {
@@ -64,44 +64,19 @@ export class MediaUploadComponent {
     }
   }
 
-  captureVideoThumbnail(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const media = document.createElement('video');
-      media.src = URL.createObjectURL(file);
-      media.crossOrigin = 'anonymous';
-      media.currentTime = 5; // Capture frame at 5 seconds or wherever you prefer
-  
-      // When media is loaded and ready
-      media.onloadeddata = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = media.videoWidth;
-        canvas.height = media.videoHeight;
-  
-        const context = canvas.getContext('2d');
-        if (context) {
-          context.drawImage(media, 0, 0, canvas.width, canvas.height);
-  
-          // Convert canvas to a data URL (base64 image)
-          const thumbnailUrl = canvas.toDataURL('image/jpeg');
-          resolve(thumbnailUrl); // Resolve the promise with the thumbnail data URL
-        } else {
-          reject('Could not capture thumbnail');
-        }
-      };
-  
-      media.onerror = (error) => {
-        reject('Error loading video: ' + error);
-      };
-    });
-  }
-
   uploadFiles(): void {
     const newMedia: any[] = [];
     if (this.uploadingMedia && this.auth.uid) {
       this.isUploading = true;
       this.uploadingMedia.forEach(async (media, index) => {
-        const thumbnailUrl = await this.captureVideoThumbnail(media.file);
-        this.storage.uploadMedia(media.file, thumbnailUrl, this.auth.uid!).subscribe(
+        // TODO handle audio
+        let folder = "";
+        if (media.file.type.includes("video")) {
+          folder = "videos";
+        } else if (media.file.type.includes("image")) {
+          folder = "images";
+        }
+        this.storage.uploadMedia(media.file, folder, this.auth.uid!).subscribe(
         async (event) => {
           if (this.uploadingMedia[index]) {
             this.uploadingMedia[index].uploadProgress = event.progress; // Update the progress
@@ -114,43 +89,41 @@ export class MediaUploadComponent {
             }
             this.changeRef.detectChanges();
           }
-        },
-        (error) => {
+        }, (error) => {
           console.error('Error uploading file:', error);
           this.isUploading = false;
-        }
-        ,() => {
+        }, () => {
           if (this.uploadingMedia.every(v => v.uploadProgress === 100)) {
             this.isUploading = false;
             this.uploadingMedia = [];
             this.selectedFiles = [];
             this.onMediaUploaded.emit(newMedia);
           }
-        }
-        );
+        });
       });
     }
   }
 
-  async uploadFile(): Promise<void> {
-    if (this.selectedFile && this.auth.uid) {
-      this.isUploading = true;
-      const thumbnailUrl = await this.captureVideoThumbnail(this.selectedFile);
-      this.storage.uploadMedia(this.selectedFile, thumbnailUrl, this.auth.uid).subscribe(
-        (event) => {
-          this.uploadProgress = event.progress;
-          if (event.downloadURL) {
-            this.downloadURL = event.downloadURL;
-            this.isUploading = false;
-            this.selectedFile = null;
-            this.onMediaUploaded.emit([event.media]);
-          }
-          this.changeRef.detectChanges();
-        },
-        (error) => {
-          console.error('Error uploading file:', error);
-        }
-      );
-    }
-  }
+  // single file upload
+  // async uploadFile(): Promise<void> {
+  //   if (this.selectedFile && this.auth.uid) {
+  //     this.isUploading = true;
+  //     const thumbnailUrl = await this.captureVideoThumbnail(this.selectedFile);
+  //     this.storage.uploadMedia(this.selectedFile, "videos", thumbnailUrl, this.auth.uid).subscribe(
+  //       (event) => {
+  //         this.uploadProgress = event.progress;
+  //         if (event.downloadURL) {
+  //           this.downloadURL = event.downloadURL;
+  //           this.isUploading = false;
+  //           this.selectedFile = null;
+  //           this.onMediaUploaded.emit([event.media]);
+  //         }
+  //         this.changeRef.detectChanges();
+  //       },
+  //       (error) => {
+  //         console.error('Error uploading file:', error);
+  //       }
+  //     );
+  //   }
+  // }
 }

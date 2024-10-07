@@ -11,7 +11,7 @@
       <p>Drag and drop your videos here</p>
       <button mat-raised-button color="primary" (click)="fileInput.click()">or click to browse</button>
       <input type="file" #fileInput (change)="onFilesSelected($event, true)"
-        accept="video/*" multiple hidden />
+        accept="video/*, image/jpeg, image/jpg, image/png" multiple hidden />
     </div>
   </ng-container>
 

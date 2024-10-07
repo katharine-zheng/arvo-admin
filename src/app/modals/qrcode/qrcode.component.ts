@@ -14,19 +14,20 @@ export class QRCodeComponent implements OnInit {
 
   constructor(
     private qrCodeService: QRCodeService,
+    private db: DbService,
     public dialogRef: MatDialogRef<QRCodeComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: any, // Injected product data for editing
-  ) {}
+    @Inject(MAT_DIALOG_DATA) public data: any) {}
 
   ngOnInit(): void {
     let data = "";
+    let projectId = this.db.projectId;
     if (this.data.product) {
       this.name = this.data.product.name;
-      data = `https://arvo-prod.web.app/p/${this.data.product.id}`;
+      data = `https://${projectId}.web.app/p/${this.data.product.id}`;
     } else if (this.data.journey) {
       this.name = this.data.journey.name;
+      data = `https://${projectId}.web.app/j/${this.data.journey.id}`;
     }
-    // const logoUrl = 'https://yourdomain.com/assets/logo.png'; // Replace with your logo URL
     const logoUrl = "";
     if (this.qrCodeElement) {
       this.qrCodeElement.innerHTML = "";

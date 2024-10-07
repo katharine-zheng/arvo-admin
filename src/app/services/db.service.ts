@@ -11,6 +11,7 @@ import { environment } from '../../environments/environment';
 export class DbService {
 
   private _account: any;
+  private _journey: any;
   private _mediaTags: string[] = [];
   private _journeys: any[] = [];
   private _products: any[] = [];
@@ -170,7 +171,7 @@ export class DbService {
   }
 
   async addTagToAccount(tag: string) {
-    const accountDocRef = doc(this.firestore, `accounts/${this._account.id}`);
+    const accountDocRef = doc(this.firestore, "accounts", this._account.id);
 
     // Update the account doc by adding the tag to the tags array if it doesn't exist
     await updateDoc(accountDocRef, {
@@ -230,9 +231,44 @@ export class DbService {
     return;
   }
 
+  async deleteProduct(data: any) {
+    try {
+      const ref = doc(this.firestore, "products", data.id);
+      // TODO remove journeys
+      const batch = writeBatch(this.firestore);
+      batch.delete(ref);
+      await batch.commit();
+    } catch (error) {
+      // this.handleError(error);
+      // await this.logError(error, "Admin.DbService.createSubscription");
+      // const customErrorMessage: string = this.handleError(error);
+      // throw new Error(customErrorMessage);
+    }
+  }
+
+  async getJourney(id: string): Promise<any> {
+    if (this._account) return;
+    try {
+      const docRef = doc(this.firestore, "journeys", id);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const journey: any = docSnap.data();
+        this._journey = journey;
+        this.setJourneyData(journey);
+        return journey;
+      }
+    } catch (error) {
+      // this.handleError(error);
+      // await this.logError(error, "Admin.DbService.getAccount");
+      // const customErrorMessage: string = this.handleError(error);
+      // throw new Error(customErrorMessage);
+    }
+  }
+
   async getJourneys() {
     let list: any[] = [];
     if (this._account && this._account.id) {
+      if (this._journeys) return this._journeys;
       try {
         const q = query(collection(this.firestore, "journeys"),
           where("accountId", "==", this._account.id));
@@ -251,7 +287,15 @@ export class DbService {
     try {
       data['dateCreated'] = serverTimestamp();
       data['dateUpdated'] = serverTimestamp();
-      await addDoc(collection(this.firestore, "journeys"), data);
+      const batch = writeBatch(this.firestore);
+      const ref = doc(collection(this.firestore, "journeys"));
+      const productRef = doc(this.firestore, "products", data.productId);
+      data.id = ref.id;
+      batch.set(ref, data);
+      batch.update(productRef, {
+        journeys: arrayUnion(data.id)
+      });
+      await batch.commit();
     } catch (error) {
       // this.handleError(error);
       // await this.logError(error, "Admin.DbService.createSubscription");
@@ -280,6 +324,24 @@ export class DbService {
     return;
   }
 
+  async deleteJourney(data: any) {
+    try {
+      const ref = doc(this.firestore, "journeys", data.id);
+      const productRef = doc(this.firestore, "products", data.productId);
+      const batch = writeBatch(this.firestore);
+      batch.delete(ref);
+      batch.update(productRef, {
+        journeys: arrayRemove(data.id),
+      });
+      await batch.commit();
+    } catch (error) {
+      // this.handleError(error);
+      // await this.logError(error, "Admin.DbService.createSubscription");
+      // const customErrorMessage: string = this.handleError(error);
+      // throw new Error(customErrorMessage);
+    }
+  }
+
   // Add a new journey to the product
   async addProductJourney(productId: string, journey: any): Promise<void> {
     const journeyCollectionRef = collection(this.firestore, 'journeys');
@@ -291,7 +353,7 @@ export class DbService {
       updateTime: new Date(),
     });
 
-    const productRef = doc(this.firestore, `products/${productId}`);
+    const productRef = doc(this.firestore, "products", productId);
     const journeyKey = journey.type === 'prePurchase' ? 'journeys.prePurchase' : 'journeys.postPurchase';
 
     await updateDoc(productRef, {
@@ -308,7 +370,7 @@ export class DbService {
 
   // Update an existing journey in the 'journeys' collection and update the metadata in the product doc
   async updateProductJourney(productId: string, journey: any): Promise<void> {
-    const journeyRef = doc(this.firestore, `journeys/${journey.id}`);
+    const journeyRef = doc(this.firestore, "journeys", journey.id);
 
     // Update the journey in the 'journeys' collection
     await updateDoc(journeyRef, {
@@ -317,7 +379,7 @@ export class DbService {
     });
 
     // Update the corresponding journey in the product document (pre_purchase or post_purchase)
-    const productRef = doc(this.firestore, `products/${productId}`);
+    const productRef = doc(this.firestore, "products", productId);
     const productDoc = await getDoc(productRef);
 
     if (productDoc.exists()) {
@@ -341,13 +403,13 @@ export class DbService {
 
   // Delete a journey from the 'journeys' collection and remove it from the product document
   async deleteProductJourney(productId: string, journeyId: string, journeyType: 'pre_purchase' | 'post_purchase'): Promise<void> {
-    const journeyRef = doc(this.firestore, `journeys/${journeyId}`);
+    const journeyRef = doc(this.firestore, "journeys", journeyId);
     
     // Delete the journey from the 'journeys' collection
     await deleteDoc(journeyRef);
     
     // Remove the journey reference from the product document
-    const productRef = doc(this.firestore, `products/${productId}`);
+    const productRef = doc(this.firestore, "products", productId);
     const productDoc = await getDoc(productRef);
 
     if (productDoc.exists()) {
@@ -391,19 +453,19 @@ export class DbService {
   async deleteMedia(mediaId: string) {
     const mediaDocRef = doc(this.firestore, "media", mediaId);
     const productsRef = collection(this.firestore, 'products');
-    const productQuery = query(productsRef, where('mediaIds', 'array-contains', mediaId));
+    const productQuery = query(productsRef, where('videoIds', 'array-contains', mediaId));
     const productSnapshots = await getDocs(productQuery);
     const batch = writeBatch(this.firestore);
 
     batch.delete(mediaDocRef);
-    productSnapshots.forEach((productDoc) => {
-      const productData = productDoc.data();
-      const mediaList = productData['mediaList'].filter((media: any) => media.id !== mediaId);
-      const mediaIds = productData['mediaIds'].filter((id: string) => id !== mediaId);
-      const productRef = doc(this.firestore, `products/${productDoc.id}`);
+    productSnapshots.forEach((product) => {
+      const productData = product.data();
+      const videos = productData['videos'].filter((media: any) => media.id !== mediaId);
+      const videoIds = productData['videoIds'].filter((id: string) => id !== mediaId);
+      const productRef = doc(this.firestore, "products", product.id);
       batch.update(productRef, {
-        mediaList,
-        mediaIds
+        videos,
+        videoIds
       });
     });
   
@@ -425,14 +487,14 @@ export class DbService {
     });
 
     const productsRef = collection(this.firestore, 'products');
-    const productQuery = query(productsRef, where('mediaIds', 'array-contains', mediaId));
+    const productQuery = query(productsRef, where('videoIds', 'array-contains', mediaId));
     const productSnapshots = await getDocs(productQuery);
     
-    productSnapshots.forEach(async (productDoc) => {
-      const productData = productDoc.data();
+    productSnapshots.forEach(async (product) => {
+      const productData = product.data();
       
-      // Map over mediaList to find the media item and use arrayUnion to add the new tag
-      const updatedMediaList = productData['mediaList'].map((media: any) => {
+      // Map over videos to find the media item and use arrayUnion to add the new tag
+      const updatedvideos = productData['videos'].map((media: any) => {
         if (media.id === mediaId) {
           return {
             ...media,
@@ -442,22 +504,22 @@ export class DbService {
         return media;
       });
   
-      // Update the product with the modified mediaList
-      const productRef = doc(this.firestore, `products/${productDoc.id}`);
+      // Update the product with the modified videos
+      const productRef = doc(this.firestore, "products", product.id);
       await updateDoc(productRef, {
-        mediaList: updatedMediaList
+        videos: updatedvideos
       });
     });
 
     const journeysRef = collection(this.firestore, 'journeys');
-    const journeyQuery = query(journeysRef, where('mediaIds', 'array-contains', mediaId));
+    const journeyQuery = query(journeysRef, where('videoIds', 'array-contains', mediaId));
     const journeySnapshots = await getDocs(journeyQuery);
 
-    journeySnapshots.forEach(async (journeyDoc) => {
-      const journeyData = journeyDoc.data();
+    journeySnapshots.forEach(async (journey) => {
+      const journeyData = journey.data();
       
-      // Map over mediaList to find the media item and use arrayUnion to add the new tag
-      const updatedMediaList = journeyData['mediaList'].map((media: any) => {
+      // Map over videos to find the media item and use arrayUnion to add the new tag
+      const updatedvideos = journeyData['videos'].map((media: any) => {
         if (media.id === mediaId) {
           return {
             ...media,
@@ -467,10 +529,10 @@ export class DbService {
         return media;
       });
 
-      // Update the journey with the modified mediaList
-      const journeyRef = doc(this.firestore, `journeys/${journeyDoc.id}`);
+      // Update the journey with the modified videos
+      const journeyRef = doc(this.firestore, "journeys", journey.id);
       await updateDoc(journeyRef, {
-        mediaList: updatedMediaList
+        videos: updatedvideos
       });
     });
   }
@@ -482,16 +544,16 @@ export class DbService {
       tags: arrayRemove(tag),
     });
 
-    // Query all products where the mediaId exists in the mediaIds array
+    // Query all products where the mediaId exists in the videoIds array
     const productsRef = collection(this.firestore, 'products');
-    const productQuery = query(productsRef, where('mediaIds', 'array-contains', mediaId));
+    const productQuery = query(productsRef, where('videoIds', 'array-contains', mediaId));
     const productSnapshots = await getDocs(productQuery);
     
-    productSnapshots.forEach(async (productDoc) => {
-      const productData = productDoc.data();
+    productSnapshots.forEach(async (product) => {
+      const productData = product.data();
       
-      // Map over mediaList to find the media item and use arrayRemove to remove the tag
-      const updatedMediaList = productData['mediaList'].map((media: any) => {
+      // Map over videos to find the media item and use arrayRemove to remove the tag
+      const updatedvideos = productData['videos'].map((media: any) => {
         if (media.id === mediaId) {
           return {
             ...media,
@@ -501,21 +563,21 @@ export class DbService {
         return media;
       });
   
-      // Update the product with the modified mediaList
-      const productRef = doc(this.firestore, `products/${productDoc.id}`);
+      // Update the product with the modified videos
+      const productRef = doc(this.firestore, "products", product.id);
       await updateDoc(productRef, {
-        mediaList: updatedMediaList
+        videos: updatedvideos
       });
     });
 
     const journeysRef = collection(this.firestore, 'journeys');
-    const journeyQuery = query(journeysRef, where('mediaIds', 'array-contains', mediaId));
+    const journeyQuery = query(journeysRef, where('videoIds', 'array-contains', mediaId));
     const journeySnapshots = await getDocs(journeyQuery);
-    journeySnapshots.forEach(async (journeyDoc) => {
-      const journeyData = journeyDoc.data();
+    journeySnapshots.forEach(async (journey) => {
+      const journeyData = journey.data();
       
-      // Map over mediaList to find the media item and use arrayRemove to remove the tag
-      const updatedMediaList = journeyData['mediaList'].map((media: any) => {
+      // Map over videos to find the media item and use arrayRemove to remove the tag
+      const updatedvideos = journeyData['videos'].map((media: any) => {
         if (media.id === mediaId) {
           return {
             ...media,
@@ -525,17 +587,17 @@ export class DbService {
         return media;
       });
   
-      // Update the journey with the modified mediaList
-      const journeyRef = doc(this.firestore, `journeys/${journeyDoc.id}`);
+      // Update the journey with the modified videos
+      const journeyRef = doc(this.firestore, "journeys", journey.id);
       await updateDoc(journeyRef, {
-        mediaList: updatedMediaList
+        videos: updatedvideos
       });
     });
   }
 
   // Remove a tag from the categories array in the account doc
   async removeTagFromAccount(tag: string): Promise<void> {
-    const accountDocRef = doc(this.firestore, `accounts/${this._account.id}`);
+    const accountDocRef = doc(this.firestore, "accounts", this._account.id);
 
     // Remove the tag from the account's categories array
     await updateDoc(accountDocRef, {
@@ -555,13 +617,13 @@ export class DbService {
   }
 
   async addMediaToProduct(productId: string, media: any[]) {
-    const productRef = doc(this.firestore, `products/${productId}`);
-    const mediaIds = media.map((media: any) => media.id);
+    const productRef = doc(this.firestore, "products", productId);
+    const videoIds = media.map((media: any) => media.id);
 
     try {
       await updateDoc(productRef, {
-        mediaList: arrayUnion(...media),
-        mediaIds: arrayUnion(...mediaIds),
+        videos: arrayUnion(...media),
+        videoIds: arrayUnion(...videoIds),
       });
     } catch (error) {
       console.error('Error adding media to the journey:', error);
@@ -569,13 +631,13 @@ export class DbService {
   }
 
   async addMediaToJourney(journeyId: string, media: any[]) {
-    const journeyRef = doc(this.firestore, `journeys/${journeyId}`);
-    const mediaIds = media.map((media: any) => media.id);
+    const journeyRef = doc(this.firestore, "journeys", journeyId);
+    const videoIds = media.map((media: any) => media.id);
 
     try {
       await updateDoc(journeyRef, {
-        mediaList: arrayUnion(...media),
-        mediaIds: arrayUnion(...mediaIds),
+        videos: arrayUnion(...media),
+        videoIds: arrayUnion(...videoIds),
       });
     } catch (error) {
       console.error('Error adding media to the journey:', error);
