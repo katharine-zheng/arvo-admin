@@ -1,14 +1,26 @@
 <div class="video-upload-container">
   <ng-container *ngIf="!isUploading">
     <h2>Upload Video</h2>
+
+    <ng-container *ngIf="tags && tags.length > 0">
+      <div class="tags">
+        <label>Tags: </label>
+        <div class="tag" *ngFor="let tag of tags">
+          <button (click)="selectTag(tag)"> {{tag}} </button>
+        </div>
+      </div>
+    </ng-container>
+
     <!-- Drag-and-drop area -->
-    <div
-    class="drag-drop-zone"
-    (dragover)="onDragOver($event)"
-    (dragleave)="onDragLeave($event)"
-    (drop)="onDrop($event)"
-    [class.dragging]="isDragging">
-      <p>Drag and drop your videos here</p>
+    <div class="drag-drop-zone" [class.dragging]="isDragging"
+      (dragover)="onDragOver($event)"
+      (dragleave)="onDragLeave($event)"
+      (drop)="onDrop($event)">
+      <p>Drag and drop your 
+        <ng-container *ngIf="selectedTag">{{ selectedTag }} </ng-container>
+        videos
+        here
+      </p>
       <button mat-raised-button color="primary" (click)="fileInput.click()">or click to browse</button>
       <input type="file" #fileInput (change)="onFilesSelected($event, true)"
         accept="video/*, image/jpeg, image/jpg, image/png" multiple hidden />
@@ -38,3 +50,5 @@
     </div>
   </ng-container> -->
 </div>
+
+<button (click)="close()">Cancel</button>

@@ -4,8 +4,9 @@ import { AuthService } from '../../services/auth.service';
 import { StorageService } from '../../services/storage.service';
 import { MatDialog } from '@angular/material/dialog';
 import { TagFormComponent } from '../../modals/tag-form/tag-form.component';
-import { UploadModalComponent } from '../../modals/upload-modal/upload-modal.component';
 import { DeleteDialogComponent } from '../../modals/delete-dialog/delete-dialog.component';
+import { MediaUploadComponent } from '../../components/media-upload/media-upload.component';
+import { catchError, combineLatestAll, finalize, forkJoin, from, of, tap } from 'rxjs';
 
 @Component({
   selector: 'app-media',
@@ -17,7 +18,8 @@ export class MediaComponent implements OnInit {
   public filteredMedia: any[] = [];
   public isLoading: boolean = false;
   public isDeleting: boolean = false;
-  public selectedMedia: Array<any> = [];
+  public selectedMedia: any[] = [];
+  public uploadingMedia: any[] = [];
   public unassignedMedia: any[] = [];
   public products: any[] = [];
   public journeys: any[] = [];
@@ -37,8 +39,10 @@ export class MediaComponent implements OnInit {
       if (account) {
         this.loadTags();
         this.getMedia();
-        this.fetchJourneys();
-        this.fetchProducts();
+
+        //TODO UNCOMMENT
+        // this.fetchJourneys();
+        // this.fetchProducts();
       }
     });
   }
@@ -114,7 +118,13 @@ export class MediaComponent implements OnInit {
     this.isLoading = true;
     const accountId = this.auth.uid;
     if (accountId) {
-      this.allMedia = await this.db.getMedia(accountId);
+      const media = await this.db.getMedia(accountId);
+      media.forEach(item => {
+        if (item.url && !item.thumbnailUrl) {
+          item.thumbnailUrl = item.url;
+        }
+      });
+      this.allMedia = media;
       this.filteredMedia = this.allMedia;
       this.unassignedMedia = this.allMedia.filter(media => !media.tags || media.tags.length === 0);
     }
@@ -128,13 +138,22 @@ export class MediaComponent implements OnInit {
       data: { tags: this.tags }
     });
 
-    // After the modal is closed, retrieve the new tag and add it to the list
-    dialogRef.afterClosed().subscribe(async (newTag: string) => {
-      if (newTag) {
-        await this.saveTag(newTag);
+    dialogRef.afterClosed().subscribe(async result => {
+      if (result) {
+        this.updateTags(result);
       }
-      this.tags = this.db.mediaTags;
     });
+  }
+
+  async updateTags(tags: any[]): Promise<void> {
+    this.isLoading = true;
+    try {
+      await this.db.updateAccountTags(tags);
+      this.tags = tags;
+    } catch (error) {
+      console.error('Error assigning category:', error);
+    }
+    this.isLoading = false;
   }
 
   async addTagToMedia(tag: string) {
@@ -187,41 +206,26 @@ export class MediaComponent implements OnInit {
     }
   }
 
-  async saveTag(newTag: string): Promise<void> {
-    if (!this.tags.includes(newTag)) {
-      this.isLoading = true;
-      try {
-        await this.db.addTagToAccount(newTag);
-        this.tags.push(newTag);
-      } catch (error) {
-        console.error('Error assigning category:', error);
-      }
-      this.isLoading = false;
-    } else {
-      alert('Tag already exists');
-    }
-  }
-
   openUploadModal() {
-    const dialogRef = this.dialog.open(UploadModalComponent, {
+    this.selectedMedia = [];
+    this.filteredMedia = this.allMedia;
+    const dialogRef = this.dialog.open(MediaUploadComponent, {
       width: '600px',
-      data: null,
+      data: { 
+        tags: this.tags,
+        journeys: this.journeys,
+        products: this.products,
+      },
       hasBackdrop: true,
-      disableClose: true, 
+      disableClose: false, 
     });
 
     dialogRef.afterClosed().subscribe(async result => {
-      if (result) {
-        // this.concatMedia(result);
-        this.getMedia();
+      if (result && result.media) {
+        this.uploadingMedia = result.media;
+        this.uploadMedia(result.tags, result.products, result.journeys);
       }
     });
-  }
-
-  concatMedia(medias: any[]) {
-    this.allMedia = this.allMedia.concat(medias);
-    this.filteredMedia = this.allMedia;
-    this.changeRef.detectChanges();
   }
 
   // Toggle all checkboxes (select or deselect all)
@@ -282,7 +286,6 @@ export class MediaComponent implements OnInit {
     }
 
     this.isLoading = true;
-    // this.selectedMedia = this.selectedMedia.filter(media => media.tags && media.tags.length > 0);
     await this.db.addMediaToProduct(this.selectedProductId, this.selectedMedia);
     this.isLoading = false;
   }
@@ -329,35 +332,90 @@ export class MediaComponent implements OnInit {
   //   }
   // }
 
-  // Method to bulk delete media
-  deleteSelectedMedia(): void {
+  async deleteSelectedMedia(): Promise<void> {
     if (this.selectedMedia.length === 0) return;
+  
     this.isDeleting = true;
     this.isLoading = true;
-
-    // Iterate over each selected media and delete it
-    this.selectedMedia.forEach(async (media, index) => {
+  
+    // Create an array of delete promises
+    const deletePromises = this.selectedMedia.map(async media => {
+      const folder = this.getStorageFolder(media);
       try {
-        let folder = "";
-        //TODO handle audio
-        if (media.type.includes("video")) {
-          folder = "videos";
-        } else if (media.type.includes("image")) {
-          folder = "images";
-        }
         await this.storage.deleteMedia(media, folder);
         this.allMedia = this.allMedia.filter(v => v.id !== media.id);
-        if (index === this.selectedMedia.length - 1) {
-          this.selectedMedia = [];
-          this.isDeleting = false;
-          this.filteredMedia = this.allMedia;
-        }
       } catch (error) {
-        console.error(error);
-        this.isDeleting = false;
+        console.error('Error deleting media:', error);
+        throw error;
       }
+    });
+  
+    // Wait for all delete operations to complete
+    try {
+      await Promise.all(deletePromises);
+      this.selectedMedia = [];
+      this.filteredMedia = this.allMedia;
+    } catch (error) {
+      console.error('Error during deletion:', error);
+    } finally {
+      this.isDeleting = false;
       this.isLoading = false;
       this.changeRef.detectChanges();
+    }
+  }
+
+  uploadMedia(tags: string[] = [], products: any[] = [], journeys: any[] = []) {
+    const newMedia: any[] = [];
+    const uploadObservables: any[] = [];
+    this.uploadingMedia.forEach((media, index) => {
+      const folder = this.getStorageFolder(media.file);
+      const upload$ = this.storage.uploadMedia(media.file, folder, tags, products, journeys)
+        .pipe(
+          tap(async (event) => {
+            if (this.uploadingMedia[index]) {
+              this.uploadingMedia[index].uploadProgress = event.progress; // Update progress
+
+              if (event.downloadURL) {
+                this.uploadingMedia[index].downloadURL = event.downloadURL;
+                newMedia.push(event.media);
+              }
+            }
+          }),
+          catchError((error) => {
+            console.error('Error uploading file:', error);
+            return of(null); // Handle the error and return a fallback observable
+          })
+        );
+
+      uploadObservables.push(upload$); // Add each upload observable to the array
     });
+
+    // Use combineLatestAll() to wait for all uploads to complete
+    from(uploadObservables).pipe(
+      combineLatestAll(), // Wait for all observables to complete
+      finalize(() => {
+        // This block runs once all uploads are complete (success or error)
+        if (this.uploadingMedia.every(v => v.uploadProgress === 100)) {
+          this.allMedia.forEach(item => {
+            if (item.url && !item.thumbnailUrl) {
+              item.thumbnailUrl = item.url;
+            }
+          });
+          this.uploadingMedia = [];
+          this.filteredMedia = [...this.allMedia];
+          this.changeRef.detectChanges();
+        }
+      })
+    ).subscribe(); 
+  }
+
+  getStorageFolder(mediaFile: any) {
+    let folder = "";
+    if (mediaFile.type.includes("video")) {
+      folder = "videos";
+    } else if (mediaFile.type.includes("image")) {
+      folder = "images";
+    }
+    return folder;
   }
 }

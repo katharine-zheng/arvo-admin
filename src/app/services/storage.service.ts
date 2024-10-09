@@ -10,7 +10,8 @@ export class StorageService {
 
   constructor(private storage: Storage, private db: DbService) {}
 
-  uploadMedia(file: File, folder: string, accountId: string, productId?: string, journeyId?: string, tag?: string): Observable<any> {
+  uploadMedia(file: File, folder: string, tags: string[] = [], products: any[] = [], journeys: any[] = []): Observable<any> {
+    const accountId = this.db.account.id;
     return new Observable<any>((observer) => {
       const fileName = `${Date.now()}_${file.name}`;
       const filePath = `${accountId}/${folder}/${fileName}`; // Single storage path
@@ -29,11 +30,11 @@ export class StorageService {
               name: fileName,
               type: file.type,
               accountId: accountId,
-              // journeys: productId ? [journeyId] : [],
+              journeys: journeys,
               originalName: file.name,
-              // products: productId ? [productId] : [],
-              tags: [],
-              uploadTime: Date.now(),
+              products: products,
+              tags: tags,
+              uploadTime: new Date(),
               url: downloadURL,
             };
 

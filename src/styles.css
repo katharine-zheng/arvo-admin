@@ -12,6 +12,18 @@ nav {
 html, body { height: 100%; }
 body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
 
+input[type="text"], select {
+  width: 100%;
+  padding: 10px;
+  margin-top: 5px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+.flex-container {
+  display: flex;
+}
+
 button.button-select {
   border-color: #eee;
   border-style: solid;;
@@ -101,6 +113,58 @@ button.button-select.selected {
   border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 16px;
+}
+
+.masonry-columns {
+  column-count: 4; /* Number of columns */
+  column-gap: 30px; /* Space between columns */
+  padding: 10px; /* Optional padding around the grid */
+}
+
+
+@media (max-width: 900px) {
+  .masonry-columns {
+    column-count: 3;
+  }
+}
+
+@media (max-width: 500px) {
+  .masonry-columns {
+    column-count: 2;
+  }
+}
+
+.masonry-item {
+  box-sizing: border-box;
+  /* break-inside: avoid; */
+  display: inline-block; /* Ensure items are treated as inline blocks to respect column layout */
+  margin-bottom: 15px; /* Space between items vertically */
+  width: 100%; /* Ensure items take full width of column */
+  background-color: #fff;
+  /* border: 1px solid #ddd; */
+  border-radius: 8px;
+  overflow: hidden;
+  padding: 5px;
+  /* box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.1); */
+}
+
+.masonry-item.selected {
+  border-color: #007bff;  /* Highlight color when selected */
+  box-shadow: 0 0 10px rgba(0, 123, 255, 0.5);
+}
+
+.masonry-item img {
+  border-radius: 5px;
+  width: 100%;
+  height: auto;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.video-title {
+  text-align: center;
+  font-size: 1em;
+  padding: 5px 0;
 }
 
 .videos-grid {

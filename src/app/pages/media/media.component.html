@@ -6,6 +6,8 @@
 </ng-container>
 <ng-container *ngIf="!isLoading">
   <button (click)="openUploadModal()">Upload videos</button>
+  <button (click)="openTagModal()">Edit tags</button>
+
   <ng-container *ngIf="allMedia && allMedia.length > 0">
     <ng-container *ngIf="filteredMedia && filteredMedia.length > 1">
       <button (click)="toggleAll()">Select all</button>
@@ -74,9 +76,17 @@
             <button (click)="addTagToMedia(tag)"> {{tag}} </button>
             <button (click)="removeTagFromMedia(tag)"> (remove {{tag}}) </button>
           </div>
-          <button (click)="openTagModal()">Edit tags</button>
         </div>
       <!-- </ng-container> -->
+    </ng-container>
+
+    <ng-container *ngIf="uploadingMedia && uploadingMedia.length > 0">
+      <div *ngFor="let media of uploadingMedia">
+        <ng-container *ngIf="media">
+          <p>{{ media.file.name }}</p>
+          <mat-progress-bar mode="determinate" [value]="media.uploadProgress"></mat-progress-bar>
+        </ng-container>
+      </div>
     </ng-container>
 
     <ng-container *ngIf="view === 'table'" >
@@ -136,6 +146,14 @@
     </ng-container>
 
     <ng-container *ngIf="view === 'grid'" >
+      <div class="masonry-columns">
+        <div class="masonry-item" [ngClass]="{'selected': isSelected(media)}"
+        (click)="onMediaSelected(media)" *ngFor="let media of filteredMedia ; trackBy: trackByMedia">
+          <img [src]="media.thumbnailUrl" [alt]="media.originalName" />
+          <div class="video-title">{{ media.originalName }}</div>
+        </div>
+      </div>
+    
       <div class="videos-grid">
         <!-- <div class="grid-item" *ngFor="let media of filteredMedia"> -->
         <div class="video-grid-item" [ngClass]="{'selected': isSelected(media)}"

@@ -36,11 +36,15 @@ import { TagFormComponent } from './modals/tag-form/tag-form.component';
 import { JourneysComponent } from './pages/journeys/journeys.component';
 import { QRCodeComponent } from './modals/qrcode/qrcode.component';
 import { ProductComponent } from './pages/product/product.component';
-import { UploadModalComponent } from './modals/upload-modal/upload-modal.component';
 import { ShopifyComponent } from './pages/shopify/shopify.component';
 import { provideCharts, withDefaultRegisterables } from 'ng2-charts';
 import { DatePipe } from '@angular/common';
 import { ChartComponent } from './components/chart/chart.component';
+import { ContentBlockComponent } from './components/content-block/content-block.component';
+import { PageEditorComponent } from './components/page-editor/page-editor.component';
+import { MediaLibraryComponent } from './components/media-library/media-library.component';
+import { ThemeEditorComponent } from './components/theme-editor/theme-editor.component';
+import { ContentBlockEditorComponent } from './components/content-block-editor/content-block-editor.component';
 
 @NgModule({
   declarations: [
@@ -58,9 +62,13 @@ import { ChartComponent } from './components/chart/chart.component';
     JourneysComponent,
     QRCodeComponent,
     ProductComponent,
-    UploadModalComponent,
     ShopifyComponent,
-    ChartComponent
+    ChartComponent,
+    ContentBlockComponent,
+    PageEditorComponent,
+    MediaLibraryComponent,
+    ThemeEditorComponent,
+    ContentBlockEditorComponent
   ],
   imports: [
     BrowserModule,

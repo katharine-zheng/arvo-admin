@@ -17,6 +17,9 @@ export class DbService {
   private _products: any[] = [];
   private _media: any[] = [];
 
+  private productItems: any = {};
+  private journeyItems: any = {};
+
   private accountSource = new BehaviorSubject<any>(null);
   public currentAccount = this.accountSource.asObservable();
   private productSource = new BehaviorSubject<any>(null);
@@ -146,8 +149,13 @@ export class DbService {
       this.updateLocalDoc(this.account, data);
       return this.account;
     } catch (error) {
-      
+      console.error(error);
     }
+  }
+
+  async updateQRSettings(qrCodeSettings: any) {
+    const userRef = doc(this.firestore, "accounts", this.account.id);
+    updateDoc(userRef, {'settings.qrCode':  qrCodeSettings});
   }
 
   async shopifyAccountExists(domain: string) {
@@ -165,9 +173,14 @@ export class DbService {
     }
   }
 
-  async updateQRSettings(qrCodeSettings: any) {
-    const userRef = doc(this.firestore, "accounts", this.account.id);
-    updateDoc(userRef, {'settings.qrCode':  qrCodeSettings});
+  async updateAccountTags(tags: any[]) {
+    const accountDocRef = doc(this.firestore, "accounts", this._account.id);
+
+    // Update the account doc by adding the tag to the tags array if it doesn't exist
+    await updateDoc(accountDocRef, {
+      mediaTags: tags,
+    });
+    this._mediaTags = this.account.mediaTags;
   }
 
   async addTagToAccount(tag: string) {
@@ -178,6 +191,14 @@ export class DbService {
       mediaTags: arrayUnion(tag),
     });
     this._mediaTags = this.account.mediaTags;
+  }
+
+  async removeTagFromAccount(tag: string): Promise<void> {
+    const accountDocRef = doc(this.firestore, "accounts", this._account.id);
+    await updateDoc(accountDocRef, {
+      mediaTags: arrayRemove(tag),
+    });
+    this._mediaTags = this._mediaTags.filter((t: string) => t !== tag);
   }
 
   async getProducts() {
@@ -196,6 +217,25 @@ export class DbService {
       }
     }
     return list;
+  }
+
+  async getProduct(id: string): Promise<any> {
+    if (this.productItems.id) return this.productItems.id;
+    try {
+      const docRef = doc(this.firestore, "products", id);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const product: any = docSnap.data();
+        this.productItems.id = product;
+        this.setJourneyData(product);
+        return product;
+      }
+    } catch (error) {
+      // this.handleError(error);
+      // await this.logError(error, "Admin.DbService.getAccount");
+      // const customErrorMessage: string = this.handleError(error);
+      // throw new Error(customErrorMessage);
+    }
   }
 
   async createProduct(item: any) {
@@ -247,13 +287,14 @@ export class DbService {
   }
 
   async getJourney(id: string): Promise<any> {
-    if (this._account) return;
+    if (this.journeyItems.id) return this.journeyItems.id;
     try {
       const docRef = doc(this.firestore, "journeys", id);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const journey: any = docSnap.data();
         this._journey = journey;
+        this.journeyItems.id = journey;
         this.setJourneyData(journey);
         return journey;
       }
@@ -447,6 +488,7 @@ export class DbService {
     const ref = doc(collection(this.firestore, "media"));
     data.id = ref.id;
     await setDoc(ref, data);
+    this._media.push(data);
     return ref.id;
   }
 
@@ -481,7 +523,7 @@ export class DbService {
 
   async addTagToMedia(tag: string, media: any) {
     const mediaId = media.id;
-    const mediaDocRef = doc(this.firestore, `media/${mediaId}`);
+    const mediaDocRef = doc(this.firestore, "media", mediaId);
     await updateDoc(mediaDocRef, {
       tags: arrayUnion(tag)
     });
@@ -593,27 +635,6 @@ export class DbService {
         videos: updatedvideos
       });
     });
-  }
-
-  // Remove a tag from the categories array in the account doc
-  async removeTagFromAccount(tag: string): Promise<void> {
-    const accountDocRef = doc(this.firestore, "accounts", this._account.id);
-
-    // Remove the tag from the account's categories array
-    await updateDoc(accountDocRef, {
-      tags: arrayRemove(tag),
-    });
-
-    // Optionally, unassign the tag from all media that use it (if required)
-    const mediaCollection = collection(this.firestore, 'media');
-    const q = query(mediaCollection, where('tags', 'array-contains', tag));
-
-    const querySnapshot = await getDocs(q);
-    querySnapshot.forEach((docSnapshot) => {
-      updateDoc(docSnapshot.ref, { category: '' }); // Unassign the category from the media
-    });
-
-    this._mediaTags = this._mediaTags.filter((t: string) => t !== tag);
   }
 
   async addMediaToProduct(productId: string, media: any[]) {

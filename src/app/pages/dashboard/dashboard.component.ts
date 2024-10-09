@@ -1,6 +1,5 @@
 import { Component, OnInit } from '@angular/core';
 import { DbService } from '../../services/db.service';
-import { UploadModalComponent } from '../../modals/upload-modal/upload-modal.component';
 import { MatDialog } from '@angular/material/dialog';
 import { AnalyticsService } from '../../services/analytics.service';
 import { DateUtilsService } from '../../services/date-utils.service';
@@ -65,21 +64,6 @@ export class DashboardComponent implements OnInit {
     this.endDateString = this.dateUtils.formatDateToISO(this.dateRange.end);      // YYYY-MM-DD
     this.startDateGA = this.dateUtils.formatDateForGA(this.dateRange.start);       // YYYYMMDD
     this.endDateGA = this.dateUtils.formatDateForGA(this.dateRange.end);           // YYYYMMDD
-  }
-
-  openUploadModal() {
-    const dialogRef = this.dialog.open(UploadModalComponent, {
-      width: '600px',
-      data: null,
-      hasBackdrop: true,
-      disableClose: true, 
-    });
-
-    dialogRef.afterClosed().subscribe(async result => {
-      if (result) {
-        alert('Success! Proceed to the media library to see your new upload(s)');
-      }
-    });
   }
 
   onDateRangeSelect(range: string): void {
