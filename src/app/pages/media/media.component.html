@@ -1,85 +1,50 @@
-<h1>Media</h1>
+<div class="header">
+  <h1>Media</h1>
+  <div class="buttons">
+    <button class="button-block" (click)="openUploadModal()">Upload videos</button>
+  </div>
+</div>
 <ng-container *ngIf="isLoading">
   <div class="spinner-container">
     <mat-spinner [diameter]="50" [strokeWidth]="5" color="primary"></mat-spinner>
   </div>
 </ng-container>
 <ng-container *ngIf="!isLoading">
-  <button (click)="openUploadModal()">Upload videos</button>
   <button (click)="openTagModal()">Edit tags</button>
-
   <ng-container *ngIf="allMedia && allMedia.length > 0">
-    <ng-container *ngIf="filteredMedia && filteredMedia.length > 1">
-      <button (click)="toggleAll()">Select all</button>
-    </ng-container>
+    <button (click)="toggleAll()">Select all</button>
     <ng-container *ngIf="selectedMedia && selectedMedia.length > 0">
       <button (click)="openDeleteModal()">Delete video(s)</button>
-
-      <!-- NOTE: commented out due to adding usage of journeys -->
-      <!-- <ng-container *ngIf="products && products.length > 0">
-        <div class="product-select">
-          <label for="productSelect">Select Product:</label>
-          <select id="productSelect" [(ngModel)]="selectedProductId">
-            <option *ngFor="let product of products" [value]="product.id">{{ product.name }}</option>
-          </select>
-        </div>
-        <button (click)="addMediaToProduct()">Add Selected Videos to Product</button>
-      </ng-container> -->
-    </ng-container>
-
-    <ng-container *ngIf="journeys && journeys.length > 0">
-      <div class="journey-select">
-        <label for="journeySelect">Select Journey:</label>
-        <select id="journeySelect" [(ngModel)]="selectedProductId">
-          <option *ngFor="let journey of journeys" [value]="journey.id">{{ journey.name }}</option>
-        </select>
-      </div>
-    </ng-container>
-
-    <div class="search-bar">
-      <input type="text" placeholder="Search by video name" [(ngModel)]="searchTerm" (input)="filterBySearchTerm()" />
-      <button (click)="clearSearch()">Clear</button>
-    </div>
-
-    <div class="view-toggle">
-      <button (click)="setView('grid')">Grid View</button>
-      <button (click)="setView('table')">Table View</button>
-    </div>
-
-    <div class="view-toggle">
-      <button (click)="filterByType('')">All</button>
-      <button (click)="filterByType('video')">Videos</button>
-      <button (click)="filterByType('image')">Images</button>
-    </div>
-
-    <ng-container *ngIf="tags && tags.length > 0">
-      <div class="tags">
-        <label>Filter: </label>
-        <div class="tag">
-          <button (click)="filterByTag('')">All</button>
-        </div>
-        <div class="tag" *ngFor="let tag of tags">
-          <button (click)="filterByTag(tag)"> {{tag}} </button>
-        </div>
-
-        <ng-container *ngIf="unassignedMedia.length > 0">
-          <div class="tag">
-            <button (click)="filterWithoutTags()">No tag assigned</button>
-          </div>
-        </ng-container>
-      </div>
-
-      <!-- <ng-container *ngIf="selectedMedia && selectedMedia.length > 0"> -->
+      <ng-container *ngIf="selectedMedia && selectedMedia.length > 0">
         <div class="tags">
           <label>Tags: </label>
-          <div class="tag" *ngFor="let tag of tags">
-            <button (click)="addTagToMedia(tag)"> {{tag}} </button>
-            <button (click)="removeTagFromMedia(tag)"> (remove {{tag}}) </button>
-          </div>
+          <ng-container *ngFor="let tag of tags">
+            <button class="button-tag" (click)="addTagToMedia(tag)"> {{tag}} </button>
+            <!-- <button class="button-tag" (click)="removeTagFromMedia(tag)"> (remove {{tag}}) </button> -->
+          </ng-container>
         </div>
-      <!-- </ng-container> -->
-    </ng-container>
 
+        <!-- NOTE: commented out due to adding usage of journeys -->
+        <!-- <ng-container *ngIf="products && products.length > 0">
+          <div class="product-select">
+            <label for="productSelect">Select Product:</label>
+            <select id="productSelect" [(ngModel)]="selectedProductId">
+              <option *ngFor="let product of products" [value]="product.id">{{ product.name }}</option>
+            </select>
+          </div>
+          <button (click)="addMediaToProduct()">Add Selected Videos to Product</button>
+        </ng-container> -->
+        <ng-container *ngIf="journeys && journeys.length > 0">
+          <div class="journey-select">
+            <label for="journeySelect">Select Journey:</label>
+            <select id="journeySelect" [(ngModel)]="selectedProductId">
+              <option *ngFor="let journey of journeys" [value]="journey.id">{{ journey.name }}</option>
+            </select>
+          </div>
+        </ng-container>
+      </ng-container>
+    </ng-container>    
+    <ng-container *ngIf="filteredMedia && filteredMedia.length > 1"></ng-container>
     <ng-container *ngIf="uploadingMedia && uploadingMedia.length > 0">
       <div *ngFor="let media of uploadingMedia">
         <ng-container *ngIf="media">
@@ -88,109 +53,9 @@
         </ng-container>
       </div>
     </ng-container>
-
-    <ng-container *ngIf="view === 'table'" >
-      <div class="table-view">
-        <table mat-table [dataSource]="filteredMedia">
-          <ng-container matColumnDef="select">
-            <th mat-header-cell *matHeaderCellDef></th>
-            <td mat-cell *matCellDef="let media" (click)="onMediaSelected(media)">
-              <button class="button-select" [ngClass]="{'selected': isSelected(media)}"></button>
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="image">
-            <th mat-header-cell *matHeaderCellDef>Video</th>
-            <td mat-cell *matCellDef="let media">
-              <div class="thumbnail">
-                <ng-container *ngIf="media.thumbnailUrl">
-                  <img [src]="media.thumbnailUrl" alt="{{ media.originalName }}">
-                </ng-container>
-                <ng-container *ngIf="!media.thumbnailUrl && media.url">
-                  <img [src]="media.url" alt="{{ media.originalName }}">
-                </ng-container>
-                <ng-container *ngIf="!media.thumbnailUrl && !media.url">
-                  <ng-template #placeholder>
-                    <div class="image-placeholder">No Image Available</div>
-                  </ng-template>
-                </ng-container>
-              </div>
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="name">
-            <th mat-header-cell *matHeaderCellDef> Name </th>
-            <td mat-cell *matCellDef="let media">{{ media.originalName }}</td>
-          </ng-container>
-
-          <ng-container matColumnDef="tags">
-            <th mat-header-cell *matHeaderCellDef> Tags </th>
-            <td mat-cell *matCellDef="let media">
-              <ng-container *ngIf="media.tags && media.tags.length > 0">
-                <button><span *ngFor="let tag of media.tags">{{tag}}, </span></button>
-              </ng-container>
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="type">
-            <th mat-header-cell *matHeaderCellDef> Type </th>
-            <td mat-cell *matCellDef="let media">
-              <ng-container *ngIf="media.type">{{ getMediaType(media) }}</ng-container>
-            </td>
-          </ng-container>
-
-          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-        </table>
-      </div>
-    </ng-container>
-
-    <ng-container *ngIf="view === 'grid'" >
-      <div class="masonry-columns">
-        <div class="masonry-item" [ngClass]="{'selected': isSelected(media)}"
-        (click)="onMediaSelected(media)" *ngFor="let media of filteredMedia ; trackBy: trackByMedia">
-          <img [src]="media.thumbnailUrl" [alt]="media.originalName" />
-          <div class="video-title">{{ media.originalName }}</div>
-        </div>
-      </div>
-    
-      <div class="videos-grid">
-        <!-- <div class="grid-item" *ngFor="let media of filteredMedia"> -->
-        <div class="video-grid-item" [ngClass]="{'selected': isSelected(media)}"
-        (click)="onMediaSelected(media)"
-        *ngFor="let media of filteredMedia; trackBy: trackByMedia">
-
-          <!-- <input type="checkbox" (change)="toggleSelection(media, $event)" [checked]="selectedMedia.includes(media)"/> -->
-          <div class="video-thumbnail">
-            <ng-container *ngIf="media.thumbnailUrl">
-              <img [src]="media.thumbnailUrl" alt="{{ media.originalName }}">
-            </ng-container>
-            <ng-container *ngIf="!media.thumbnailUrl && media.url">
-              <img [src]="media.url" alt="{{ media.originalName }}">
-            </ng-container>
-            <ng-container *ngIf="!media.thumbnailUrl && !media.url">
-              <ng-template #placeholder>
-                <div class="image-placeholder">No Image Available</div>
-              </ng-template>
-            </ng-container>
-          </div>
-
-          <!-- Product Details -->
-          <div class="item-details">
-            <p>{{media.originalName}}</p>
-            <div class="product-actions">
-              <div>
-                <ng-container *ngIf="media.tags && media.tags.length > 0">
-                  <button>Tag: <span *ngFor="let tag of media.tags">{{tag}}, </span></button>
-                </ng-container>
-              </div>
-              <!-- <button mat-raised-button color="warn" (click)="openDeleteModal(media)" [disabled]="isDeleting">
-                {{ media.isDeleting ? 'Deleting...' : 'Delete' }}
-              </button> -->
-            </div>
-          </div>
-        </div>
-      </div>
-    </ng-container>
   </ng-container>
+
+  <app-media-library 
+    (selectionChanged)="onSelectionChanged($event)">
+  </app-media-library>
 </ng-container>

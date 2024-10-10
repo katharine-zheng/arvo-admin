@@ -15,7 +15,6 @@ export class DbService {
   private _mediaTags: string[] = [];
   private _journeys: any[] = [];
   private _products: any[] = [];
-  private _media: any[] = [];
 
   private productItems: any = {};
   private journeyItems: any = {};
@@ -26,6 +25,8 @@ export class DbService {
   public currentProduct = this.productSource.asObservable();
   private journeySource = new BehaviorSubject<any>(null);
   public currentJourney = this.journeySource.asObservable();
+  private mediaListSubject = new BehaviorSubject<any[]>([]);
+  public mediaList$ = this.mediaListSubject.asObservable();
 
   get projectId(): string {
     return environment.firebase.projectId;
@@ -50,9 +51,9 @@ export class DbService {
     return this._products;
   }
   
-  get media() {
-    return this._media;
-  }
+  // get media() {
+  //   return this._media;
+  // }
 
   constructor(private firestore: Firestore) {}
 
@@ -78,6 +79,10 @@ export class DbService {
 
   getJourneyData() {
     return this.journeySource.getValue();
+  }
+
+  setMediaList(media: any[]) {
+    this.mediaListSubject.next(media);
   }
 
   async deleteDocument(collection: string, id: string) {
@@ -480,7 +485,7 @@ export class DbService {
     querySnapshot.forEach((doc) => {
       list.push({id: doc.id, ...doc.data()})
     });
-    this._media = list;
+    this.setMediaList(list);
     return list;
   }
 
@@ -488,7 +493,11 @@ export class DbService {
     const ref = doc(collection(this.firestore, "media"));
     data.id = ref.id;
     await setDoc(ref, data);
-    this._media.push(data);
+    const currentMediaList = this.mediaListSubject.getValue(); // Get current media list
+    const updatedMediaList = [...currentMediaList, data]; // Add new media to the list
+
+    // Update the BehaviorSubject to propagate the changes to all components
+    this.setMediaList(updatedMediaList);
     return ref.id;
   }
 
@@ -512,6 +521,15 @@ export class DbService {
     });
   
     await batch.commit();
+
+    // Get the current media list
+    const currentMediaList = this.mediaListSubject.getValue();
+
+    // Filter out the deleted media item
+    const updatedMediaList = currentMediaList.filter(media => media.id !== mediaId);
+
+    // Update the BehaviorSubject with the new media list
+    this.setMediaList(updatedMediaList);
   }
 
   saveMediaThumbnail(mediaId: string, thumbnailURL: string): Promise<void> {

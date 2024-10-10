@@ -8,34 +8,35 @@ import { DbService } from '../../services/db.service';
   styleUrl: './tag-form.component.css'
 })
 export class TagFormComponent implements OnInit {
-  tags: string[] = [];
-  newTag: string = "";
+  public tags: string[] = [];
+  public newTag: string = "";
 
   constructor(
     private db: DbService,
     public dialogRef: MatDialogRef<TagFormComponent>,
+    @Inject(MAT_DIALOG_DATA) public data: any
   ) {}
 
   ngOnInit(): void {
-    this.tags = this.db.mediaTags;
+    this.tags = (this.data.tags && this.data.tags.length > 0) ? this.data.tags : this.db.mediaTags;
   }
 
-  async deleteTag(tag: string) {
-    try {
-      await this.db.removeTagFromAccount(tag);
-      this.tags = this.db.mediaTags;
-    } catch (error) {
-
+  addTag(): void {
+    if (!this.tags.includes(this.newTag)) {
+      this.tags.push(this.newTag);
     }
+    this.newTag = "";
   }
 
-  createTag(): void {
-    if (this.newTag.trim()) {
-      this.dialogRef.close(this.newTag); // Pass the new tag back
-    }
+  removeTag(tag: string) {
+    this.tags = this.tags.filter((t: string) => t !== tag);
   }
 
-  close(): void {
+  update() {
+    this.dialogRef.close(this.tags);
+  }
+
+  cancel(): void {
     this.dialogRef.close();
   }
 }

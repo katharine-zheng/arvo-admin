@@ -38,13 +38,20 @@ export class MediaComponent implements OnInit {
     this.db.currentAccount.subscribe((account: any) => {
       if (account) {
         this.loadTags();
-        this.getMedia();
-
-        //TODO UNCOMMENT
-        // this.fetchJourneys();
-        // this.fetchProducts();
+        if (this.allMedia.length < 1) this.getMedia();
+        this.fetchJourneys();
+        this.fetchProducts();
       }
     });
+
+    this.db.mediaList$.subscribe(media => {
+      this.allMedia = [...media];
+    });
+  }
+
+  onSelectionChanged(selectedMedia: any[]) {
+    this.selectedMedia = [...selectedMedia];
+    this.changeRef.detectChanges();
   }
 
   async fetchJourneys() {
@@ -53,10 +60,6 @@ export class MediaComponent implements OnInit {
 
   async fetchProducts() {
     this.products = await this.db.getProducts();
-  }
-
-  setView(view: 'grid' | 'table') {
-    this.view = view;
   }
 
   getMediaType(media: any) {
@@ -68,42 +71,6 @@ export class MediaComponent implements OnInit {
       }
     }
     return "";
-  }
-
-  filterWithoutTags(): void {
-    this.filteredMedia = this.allMedia.filter(media => !media.tags || media.tags.length === 0);
-  }
-
-  filterBySearchTerm() {
-    if (this.searchTerm) {
-      this.filteredMedia = this.allMedia.filter(media =>
-        media.originalName.toLowerCase().includes(this.searchTerm.toLowerCase())
-      );
-    } else {
-      this.filteredMedia = [...this.allMedia];
-    }
-  }
-
-  filterByTag(tag: string) {
-    this.selectedTag = tag;
-    if (this.selectedTag && this.selectedTag !== '') {
-      this.filteredMedia = this.allMedia.filter(media => media.tags.includes(this.selectedTag));
-    } else {
-      this.filteredMedia = this.allMedia;
-    }
-  }
-
-  filterByType(type: string) {
-    if (type) {
-      this.filteredMedia = this.allMedia.filter(media => media.type.includes(type));
-    } else {
-      this.filteredMedia = this.allMedia;
-    }
-  }
-
-  clearSearch() {
-    this.searchTerm = "";
-    this.filteredMedia = [...this.allMedia];
   }
 
   async loadTags() {
@@ -130,6 +97,32 @@ export class MediaComponent implements OnInit {
     }
     this.isLoading = false;
     this.changeRef.detectChanges();
+  }
+
+  async addMediaToProduct() {
+    if (!this.selectedProductId) {
+      console.error("No product selected");
+      return;
+    }
+  
+    if (this.selectedMedia.length === 0) {
+      console.error("No media selected");
+      return;
+    }
+
+    this.isLoading = true;
+    await this.db.addMediaToProduct(this.selectedProductId, this.selectedMedia);
+    this.isLoading = false;
+  }
+
+  // Toggle all checkboxes (select or deselect all)
+  toggleAll(): void {
+    this.masterToggle = !this.masterToggle;
+    if (this.masterToggle) {
+      this.selectedMedia = this.selectedMedia.concat(this.filteredMedia);
+    } else {
+      this.selectedMedia = [];
+    }
   }
 
   openTagModal() {
@@ -183,14 +176,17 @@ export class MediaComponent implements OnInit {
     }
   }
 
-  removeTagFromMedia(tag: string) {
+  async removeTagFromMedia(tag: string) {
     if (tag && this.selectedMedia.length === 1) {
       this.selectedTag = tag;
       this.isLoading = true;
       try {
         this.selectedMedia.forEach(async (media) => {
-          await this.db.removeTagFromMedia(tag, media);
-          media.tags = media.tags.filter((t: string) => t !== tag);
+          if (media.tags && media.tags.includes(tag)) {
+            // Proceed with removing the tag from Firestore and updating the local media object
+            await this.db.removeTagFromMedia(tag, media);
+            media.tags = media.tags.filter((t: string) => t !== tag);
+          }
         });
         this.selectedTag = "";
         this.selectedMedia = [];
@@ -204,90 +200,6 @@ export class MediaComponent implements OnInit {
     } else {
       alert('Please select or enter a tag.');
     }
-  }
-
-  openUploadModal() {
-    this.selectedMedia = [];
-    this.filteredMedia = this.allMedia;
-    const dialogRef = this.dialog.open(MediaUploadComponent, {
-      width: '600px',
-      data: { 
-        tags: this.tags,
-        journeys: this.journeys,
-        products: this.products,
-      },
-      hasBackdrop: true,
-      disableClose: false, 
-    });
-
-    dialogRef.afterClosed().subscribe(async result => {
-      if (result && result.media) {
-        this.uploadingMedia = result.media;
-        this.uploadMedia(result.tags, result.products, result.journeys);
-      }
-    });
-  }
-
-  // Toggle all checkboxes (select or deselect all)
-  toggleAll(): void {
-    this.masterToggle = !this.masterToggle;
-    if (this.masterToggle) {
-      this.selectedMedia = this.selectedMedia.concat(this.filteredMedia);
-    } else {
-      this.selectedMedia = [];
-    }
-  }
-
-  // toggleSelection(media: any, event: any): void {
-  //   if (event.target.checked) {
-  //     // Check if the media already exists in the array
-  //     const mediaExists = this.selectedMedia.some(v => v.id === media.id);
-      
-  //     if (!mediaExists) {
-  //       this.selectedMedia.push(media);
-  //     }
-  //   } else {
-  //     this.selectedMedia = this.selectedMedia.filter(v => v.id !== media.id);
-  //   }
-  // }
-
-  trackByMedia(index: number, media: any): any {
-    return media.id;
-  }
-
-  isSelected(media: any): boolean {
-    if (this.selectedMedia && this.selectedMedia.length > 0) {
-      return this.selectedMedia.some(v => v.id === media.id);
-    }
-    return false;
-  }
-
-  onMediaSelected(media: any) {
-    const selectedMedia = this.selectedMedia;
-    const index = selectedMedia.findIndex(v => v.id === media.id);
-
-    if (index > -1) {
-      this.selectedMedia.splice(index, 1);
-    } else {
-      this.selectedMedia.push(media);
-    }
-    this.changeRef.detectChanges();
-  }
-
-  async addMediaToProduct() {
-    if (!this.selectedProductId) {
-      console.error("No product selected");
-      return;
-    }
-  
-    if (this.selectedMedia.length === 0) {
-      console.error("No media selected");
-      return;
-    }
-
-    this.isLoading = true;
-    await this.db.addMediaToProduct(this.selectedProductId, this.selectedMedia);
-    this.isLoading = false;
   }
 
   openDeleteModal(media?: any) {
@@ -362,6 +274,28 @@ export class MediaComponent implements OnInit {
       this.isLoading = false;
       this.changeRef.detectChanges();
     }
+  }
+
+  openUploadModal() {
+    this.selectedMedia = [];
+    this.filteredMedia = this.allMedia;
+    const dialogRef = this.dialog.open(MediaUploadComponent, {
+      width: '600px',
+      data: { 
+        tags: this.tags,
+        journeys: this.journeys,
+        products: this.products,
+      },
+      hasBackdrop: true,
+      disableClose: false, 
+    });
+
+    dialogRef.afterClosed().subscribe(async result => {
+      if (result && result.media) {
+        this.uploadingMedia = result.media;
+        this.uploadMedia(result.tags, result.products, result.journeys);
+      }
+    });
   }
 
   uploadMedia(tags: string[] = [], products: any[] = [], journeys: any[] = []) {

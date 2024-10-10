@@ -5,9 +5,9 @@
     <ng-container *ngIf="tags && tags.length > 0">
       <div class="tags">
         <label>Tags: </label>
-        <div class="tag" *ngFor="let tag of tags">
-          <button (click)="selectTag(tag)"> {{tag}} </button>
-        </div>
+        <ng-container *ngFor="let tag of tags">
+          <button class="button-tag" (click)="selectTag(tag)"> {{tag}} </button>
+        </ng-container>
       </div>
     </ng-container>
 
